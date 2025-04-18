@@ -46,7 +46,7 @@ class AIProfessorUI(QMainWindow):
     def init_window_properties(self):
         """初始化窗口属性：大小、图标、状态栏和窗口风格"""
         # 设置窗口标题和初始大小
-        self.setWindowTitle("暴躁的教授读论文")
+        self.setWindowTitle("读论文助手")
         self.setGeometry(100, 100, 1400, 900)
         
         # 添加状态栏
@@ -103,7 +103,7 @@ class AIProfessorUI(QMainWindow):
         app_icon.setPixmap(self.windowIcon().pixmap(16, 16))
         
         # 设置应用标题
-        app_title = QLabel("暴躁的教授读论文")
+        app_title = QLabel("读论文助手")
         app_title.setStyleSheet("color: white; font-weight: bold;")
         
         # 创建窗口控制按钮
@@ -145,14 +145,14 @@ class AIProfessorUI(QMainWindow):
         """
         
         # 最小化按钮
-        self.btn_minimize = QPushButton("🗕")
+        self.btn_minimize = QPushButton("﹣")
         self.btn_minimize.setStyleSheet(btn_style)
         self.btn_minimize.clicked.connect(self.showMinimized)
         self.btn_minimize.setToolTip("最小化")
         self.btn_minimize.setCursor(Qt.CursorShape.PointingHandCursor)
         
         # 最大化/还原按钮
-        self.btn_maximize = QPushButton("🗖")
+        self.btn_maximize = QPushButton("z")
         self.btn_maximize.setStyleSheet(btn_style)
         self.btn_maximize.clicked.connect(self.toggle_maximize)
         self.btn_maximize.setToolTip("最大化")
@@ -172,7 +172,7 @@ class AIProfessorUI(QMainWindow):
                 border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #E81123;
+                background-color: #FF3B30; /* macOS close button red */
                 border-radius: 4px;
             }
         """)
@@ -202,11 +202,11 @@ class AIProfessorUI(QMainWindow):
         """切换窗口最大化/还原状态"""
         if self.isMaximized():
             self.showNormal()
-            self.btn_maximize.setText("🗖")
+            self.btn_maximize.setText("z")
             self.btn_maximize.setToolTip("最大化")
         else:
             self.showMaximized()
-            self.btn_maximize.setText("🗗")
+            self.btn_maximize.setText("r")
             self.btn_maximize.setToolTip("还原")
 
     def init_ui_components(self):
