@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- AI Avatar -->
+  <g id="ai-avatar">
+    <!-- Background Circle -->
+    <circle cx="50" cy="50" r="50" fill="#3F51B5"/>
+    
+    <!-- Robot Head -->
+    <rect x="30" y="25" width="40" height="35" rx="5" fill="#E8EAF6"/>
+    
+    <!-- Robot Eyes -->
+    <circle cx="40" cy="40" r="5" fill="#303F9F"/>
+    <circle cx="60" cy="40" r="5" fill="#303F9F"/>
+    
+    <!-- Robot Antenna -->
+    <line x1="50" y1="25" x2="50" y2="15" stroke="#E8EAF6" stroke-width="3"/>
+    <circle cx="50" cy="12" r="4" fill="#C5CAE9"/>
+    
+    <!-- Robot Mouth -->
+    <rect x="38" y="50" width="24" height="3" rx="1" fill="#303F9F"/>
+  </g>
+</svg>

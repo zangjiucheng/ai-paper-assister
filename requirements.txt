@@ -1,0 +1,14 @@
+sentence_transformers
+modelscope
+faiss-cpu
+scikit-learn
+langchain
+langchain_community
+langchain-huggingface
+PyQt6
+PyQt6-WebEngine
+markdown
+pymdown-extensions
+zhconv
+RealtimeSTT
+pyaudio
