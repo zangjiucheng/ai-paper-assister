@@ -6,7 +6,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 from ui.markdown_view import MarkdownView
-from ui.chat_widget import ChatWidget
 from ui.sidebar_widget import SidebarWidget
 from data_manager import DataManager
 from AI_manager import AIManager
@@ -40,9 +39,6 @@ class AIProfessorUI(QMainWindow):
         
         # 加载论文数据
         self.data_manager.load_papers_index()
-        
-        # 显示欢迎信息
-        self.show_welcome_message()
         
         # 在后台预加载所有论文向量库
         self.ai_manager.init_rag_retriever("output")
@@ -291,15 +287,8 @@ class AIProfessorUI(QMainWindow):
         # 创建Markdown显示区域
         md_container = self.create_markdown_container()
         
-        # 创建聊天区域
-        self.chat_widget = ChatWidget()
-        self.chat_widget.set_paper_controller(self.data_manager)
-        self.chat_widget.set_ai_controller(self.ai_manager)
-        self.chat_widget.set_markdown_view(self.md_view) 
-        
         # 添加到分隔器并设置初始比例
         splitter.addWidget(md_container)
-        splitter.addWidget(self.chat_widget)
         splitter.setSizes([int(self.width() * 0.6), int(self.width() * 0.4)])
         
         return splitter
@@ -505,9 +494,6 @@ class AIProfessorUI(QMainWindow):
         # 更新状态栏
         title = paper.get('translated_title', '') or paper.get('title', '')
         self.statusBar().showMessage(f"已加载论文: {title}")
-        
-        # 向AI助手发送论文加载通知
-        self.chat_widget.receive_ai_message(f"已加载论文「{title}」")
 
     def on_loading_error(self, error_message):
         """
@@ -530,30 +516,6 @@ class AIProfessorUI(QMainWindow):
         """
         # 更新状态栏
         self.statusBar().showMessage(message)
-
-    def show_welcome_message(self):
-        """显示欢迎信息"""
-        welcome_md = """
-# 哼！又来一个不读论文的学生是吧？
-
-很好，至少你知道打开这个软件。我是你的论文指导教授，**不要期望我对你手下留情**。
-
-## 听好了，这是你能做的事：
-
-- **选论文**：左边那一堆，挑一篇你能看懂的（如果有的话）
-- **换语言**：中英文看不懂？按上面那个按钮切换，别指望换了语言就能理解内容
-- **问问题**：有不懂的就右边提问，我会回答，虽然你的问题可能很蠢
-- **看摘要**：懒得读全文？我给你总结重点，省得你到处抓瞎
-
-## 开始用吧，别磨蹭！
-
-从左边随便选一篇，然后开始读。有不明白的就问我，**别憋着装懂**！
-
-记住：_真正的学术是刀尖起舞，而不是像你平时那样浅尝辄止！_
-
-...不过别担心，我会一直在这陪你读完的。
-"""
-        self.md_view.load_markdown(welcome_md)
 
     def toggle_language(self):
         """
@@ -644,13 +606,6 @@ class AIProfessorUI(QMainWindow):
         # 清理AI管理器资源
         if hasattr(self, 'ai_manager'):
             self.ai_manager.cleanup()
-        if hasattr(self, 'chat_widget'):
-            # 如果chat_widget中有语音线程，请求中断并清理
-            if hasattr(self.chat_widget, 'voice_thread') and self.chat_widget.voice_thread:
-                self.chat_widget.voice_thread.stop()  # 使用新增的stop()方法
-                self.chat_widget.voice_thread.wait(1000)  # 等待线程完成，最多1秒
-            
-            self.chat_widget.closeEvent(event)
         
         # 停止任何正在运行的处理线程
         if self.data_manager.current_thread is not None and self.data_manager.current_thread.isRunning():
