@@ -477,6 +477,7 @@ class AIProfessorUI(QMainWindow):
         
         # 更新语言按钮文本
         self.lang_button.setText("切换为英文")
+        self.lang_button.setShortcut("Ctrl+L")
         self.lang_button.setStyleSheet("""
             #langButton {
                 background-color: rgba(255, 255, 255, 0.2);
@@ -558,6 +559,7 @@ class AIProfessorUI(QMainWindow):
             """)
             
         self.lang_button.setText(btn_text)
+        self.lang_button.setShortcut("Ctrl+L")
         
         # 更新状态栏
         current_paper = self.data_manager.current_paper

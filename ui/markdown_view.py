@@ -197,7 +197,7 @@ class MarkdownView(QWebEngineView):
             self.add_scroll_listener()
     
     def add_scroll_listener(self):
-        """添加JavaScript滚动事件监听器"""
+        """添加JavaScript滚动事件监听器和vim风格的j/k滚动支持"""
         js_code = """
         (function() {
             // 移除现有的滚动监听器(如果有)
@@ -223,8 +223,25 @@ class MarkdownView(QWebEngineView):
             
             // 监视变量
             window.scrollNotification = 0;
-            
-            return "已添加滚动监听器";
+
+            // 添加键盘事件监听器
+            document.addEventListener('keydown', function(event) {
+            if (event.key === 'j') {
+                // 按下 'j' 键，向下滚动一部分
+                window.scrollBy({
+                top: 150,  // 滚动150像素
+                behavior: 'smooth'
+                });
+            } else if (event.key === 'k') {
+                // 按下 'k' 键，向上滚动一部分
+                window.scrollBy({
+                top: -150,  // 向上滚动150像素
+                behavior: 'smooth'
+                });
+            }
+            });
+
+            return "已添加滚动监听器和vim风格的j/k滚动支持";
         })();
         """
         self.page().runJavaScript(js_code, self._handle_add_scroll_listener_result)
