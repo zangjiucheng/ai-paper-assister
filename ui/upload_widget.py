@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QLabel, QFrame, QProgressBar, QFileDialog)
+                           QLabel, QFrame, QProgressBar, QFileDialog, QMessageBox)
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QFont
+from datetime import datetime, time, timezone, date
 import os
 
 class UploadWidget(QWidget):
@@ -304,10 +305,60 @@ class UploadWidget(QWidget):
         
     def on_resume_clicked(self):
         """继续处理按钮点击事件"""
+        if not self._is_discount_api_available():
+            # 显示一个警告对话框，询问用户是否要继续
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+            msg_box.setWindowTitle("折扣API不可用")
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #f5f5f5;
+                    font-family: "Source Han Sans SC";
+                    font-size: 12px;
+                }
+                QMessageBox QLabel {
+                    color: #1a237e;
+                }
+                QMessageBox QPushButton {
+                    background-color: #3f51b5;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    padding: 5px 15px;
+                    font-weight: bold;
+                }
+                QMessageBox QPushButton:hover {
+                    background-color: #303f9f;
+                }
+            """)
+            LOCAL_ZONE = datetime.now().astimezone().tzinfo
+            utc_to_local = lambda t: (
+                datetime
+                .combine(date.today(), t, tzinfo=timezone.utc)  # mark t as UTC
+                .astimezone(LOCAL_ZONE)                          # convert to local
+                .strftime("%H:%M")                               # format
+            )
+            msg_box.setText(f"当前折扣API暂不可用（服务时间为当地时间 {utc_to_local(time(16, 30))} 至 {utc_to_local(time(0, 30))}）。您确定要继续吗？")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+
+            if response == QMessageBox.StandardButton.No:
+                self.is_paused = False
+                self.is_processing = False 
+                return
         self.resume_button.setEnabled(False)
         self.pause_button.setEnabled(True)
         # 发送继续信号
         self.resume_processing.emit()
+    
+    def _is_discount_api_available(self):
+        """检查当前折扣API是否可用"""
+        # 这里可以添加逻辑来检查当前折扣API的可用性
+        # 例如，检查是否有可用的API密钥或是否达到使用限制
+        current_time = datetime.now(timezone.utc).time()
+        if time(16, 30) <= current_time or current_time <= time(0, 30):
+            return True
+        return False
         
     def set_title_visible(self, visible):
         """设置标题是否可见"""
