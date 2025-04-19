@@ -13,6 +13,7 @@ class SidebarWidget(QWidget):
     upload_file = pyqtSignal(str)  # 上传文件信号，传递文件路径（转发）
     pause_processing = pyqtSignal()  # 暂停处理信号（转发）
     resume_processing = pyqtSignal()  # 继续处理信号（转发）
+    toggle_active = pyqtSignal(str)  # 切换激活状态信号（转发）
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -143,6 +144,8 @@ class SidebarWidget(QWidget):
             shortcut = QShortcut(QKeySequence(f"Ctrl+{i}"), self)
             shortcut.activated.connect(lambda i=i: self.select_paper_by_index(i - 1))
         
+        QShortcut(QKeySequence(f"Ctrl+t"), self).activated.connect(self.toggle_active_paper)
+        
         list_layout.addWidget(self.paper_list)
         
         # 创建上传文件窗口
@@ -206,7 +209,9 @@ class SidebarWidget(QWidget):
         self.paper_list.clear()
         for index, paper in enumerate(papers_index, start=1):
             # 优先使用translated_title作为显示文本
-            title = f"{index}. {paper.get('translated_title') or paper.get('title') or paper.get('id', '')}"
+            title = paper.get('translated_title') or paper.get('title') or paper.get('id', '')
+            if paper.get('active') == 1:
+                title = f"{index}. {title}"
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, paper)
             self.paper_list.addItem(item)
@@ -217,6 +222,15 @@ class SidebarWidget(QWidget):
         if paper:
             # 发送论文选择信号
             self.paper_selected.emit(paper.get('id'))
+
+    def toggle_active_paper(self):
+        """切换指定论文的激活状态"""
+        item = self.paper_list.currentItem()
+        if item is None:
+            return
+        paper = item.data(Qt.ItemDataRole.UserRole)
+        if paper:
+            self.toggle_active.emit(paper.get('id'))
             
     def on_upload_file(self, file_path):
         """处理上传文件事件，转发上传文件信号"""

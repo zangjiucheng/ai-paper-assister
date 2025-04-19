@@ -321,7 +321,8 @@ class Pipeline(QObject):
             'id': self.paper_info['paper_id'],
             'title': title,
             'translated_title': translated_title,
-            'paths': path_dict
+            'paths': path_dict,
+            'active': False,
         }
         
         # 查找现有条目

@@ -461,6 +461,9 @@ class AIProfessorUI(QMainWindow):
         # 连接侧边栏的论文选择信号
         self.sidebar.paper_selected.connect(self.on_paper_selected)
 
+        # Toggle Active
+        self.sidebar.toggle_active.connect(self.data_manager.toggle_active)
+
         # 连接处理进度信号
         self.data_manager.processing_progress.connect(self.on_processing_progress)
         self.data_manager.processing_finished.connect(self.on_processing_finished)
@@ -490,6 +493,16 @@ class AIProfessorUI(QMainWindow):
         """
         # 通知数据管理器加载选定的论文
         self.data_manager.load_paper_content(paper_id)
+
+    def toggle_active(self, paper_id):
+        """
+        切换论文的激活状态
+        
+        Args:
+            paper_id: 论文ID
+        """
+        # 通知数据管理器切换选定的论文激活状态
+        self.data_manager.toggle_active(paper_id)
 
     def on_paper_content_loaded(self, paper, zh_content, en_content):
         """

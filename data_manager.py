@@ -72,12 +72,30 @@ class DataManager(QObject):
             if os.path.exists(index_path):
                 with open(index_path, 'r', encoding='utf-8') as f:
                     self.papers_index = json.load(f)
+                    self.papers_index.sort(key=lambda x: (0 if x.get("active", True) else 1, x.get('id', '')))
                 self.message.emit(f"成功从 {index_path} 加载论文索引")
                 self.papers_loaded.emit(self.papers_index)
             else:
                 self.message.emit(f"索引文件不存在: {index_path}")
         except Exception as e:
             self.loading_error.emit(f"加载论文索引失败: {str(e)}")
+
+    def toggle_active(self, paper_id):
+        """切换论文的激活状态"""
+        for idx, paper in enumerate(self.papers_index):
+            if paper["id"] == paper_id:
+                self.papers_index[idx]["active"] = not paper.get("active", True)
+                self.message.emit(f"论文 {paper_id} 的激活状态已切换")
+                break
+
+        index_path = os.path.join(self.output_dir, "papers_index.json")
+        with open(index_path, 'w', encoding='utf-8') as f:
+            json.dump(self.papers_index, f, ensure_ascii=False, indent=4)
+        self.message.emit(f"索引文件已更新: {index_path}")
+
+        # 重新加载索引以更新UI
+        self.load_papers_index()
+        self.papers_loaded.emit(self.papers_index)
     
     # ========== 论文内容加载 ==========
     
