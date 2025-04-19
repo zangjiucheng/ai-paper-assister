@@ -170,3 +170,4 @@ cython_debug/
 data/
 output/
 *.python-version
+*.DS_Store
