@@ -1,4 +1,6 @@
 import os
+import sys
+import subprocess
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QPushButton, QSplitter, 
                            QLabel, QFrame)
@@ -380,10 +382,35 @@ class AIProfessorUI(QMainWindow):
         """)
         self.lang_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.lang_button.clicked.connect(self.toggle_language)
+
+        self.pdf_button = QPushButton("View Original PDF")
+        self.pdf_button.setObjectName("pdfButton")
+        self.pdf_button.setStyleSheet("""
+            #pdfButton {
+                background-color: rgba(255, 0, 0, 0.4);
+                color: white;
+                border: 1px solid rgba(255, 0, 0, 0.6);
+                border-radius: 8px;
+                padding: 5px 15px;
+                font-weight: bold;
+            }
+            #pdfButton:hover {
+                background-color: rgba(255, 0, 0, 0.6);
+            }
+        """)
+        self.pdf_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pdf_button.clicked.connect(self.toggle_pdf)
+        self.pdf_button.setShortcut("Ctrl+P")
+        self.pdf_button.setToolTip("View Original PDF")
         
         # 添加到布局
         toolbar_layout.addWidget(doc_title, 0, Qt.AlignmentFlag.AlignLeft)
-        toolbar_layout.addWidget(self.lang_button, 0, Qt.AlignmentFlag.AlignRight)
+        combo_widget = QWidget()
+        combo_layout = QHBoxLayout(combo_widget)
+        combo_layout.setContentsMargins(0, 0, 0, 0)
+        combo_layout.addWidget(self.lang_button)
+        combo_layout.addWidget(self.pdf_button)
+        toolbar_layout.addWidget(combo_widget, 0, Qt.AlignmentFlag.AlignRight)
         
         return toolbar
 
@@ -520,6 +547,33 @@ class AIProfessorUI(QMainWindow):
         """
         # 更新状态栏
         self.statusBar().showMessage(message)
+
+    def toggle_pdf(self):
+        """
+        切换PDF查看器
+        """
+        current_paper = self.data_manager.current_paper
+        if current_paper and current_paper.get('id'):
+            pdf_path = os.path.join("data", f"{current_paper.get('id')}.pdf")
+            if os.path.exists(pdf_path):
+                try:
+                    if os.name == 'nt':
+                        # Windows系统
+                        subprocess.Popen(['start', pdf_path], shell=True)
+                    elif sys.platform == 'darwin':
+                        # macOS系统
+                        subprocess.Popen(['open', pdf_path])
+                    else:
+                        # Linux系统
+                        subprocess.Popen(['xdg-open', pdf_path])
+                    self.statusBar().showMessage(f"打开PDF文件: {pdf_path}")
+                except Exception as e:
+                    self.statusBar().showMessage(f"打开PDF文件失败: {e}")
+            else:
+                self.statusBar().showMessage("PDF文件不存在")
+        else:
+            self.statusBar().showMessage("未加载论文或未指定PDF路径")
+        pass
 
     def toggle_language(self):
         """
