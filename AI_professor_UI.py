@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 from ui.markdown_view import MarkdownView
+from ui.chat_widget import ChatWidget
 from ui.sidebar_widget import SidebarWidget
 from data_manager import DataManager
 from AI_manager import AIManager
@@ -292,8 +293,15 @@ class AIProfessorUI(QMainWindow):
         # 创建Markdown显示区域
         md_container = self.create_markdown_container()
         
+        # 创建聊天区域
+        self.chat_widget = ChatWidget()
+        self.chat_widget.set_paper_controller(self.data_manager)
+        self.chat_widget.set_ai_controller(self.ai_manager)
+        self.chat_widget.set_markdown_view(self.md_view) 
+        
         # 添加到分隔器并设置初始比例
         splitter.addWidget(md_container)
+        splitter.addWidget(self.chat_widget)
         splitter.setSizes([int(self.width() * 0.6), int(self.width() * 0.4)])
         
         return splitter
@@ -538,6 +546,9 @@ class AIProfessorUI(QMainWindow):
         # 更新状态栏
         title = paper.get('translated_title', '') or paper.get('title', '')
         self.statusBar().showMessage(f"已加载论文: {title}")
+        
+        # 向AI助手发送论文加载通知
+        self.chat_widget.receive_ai_message(f"已加载论文「{title}」")
 
     def on_loading_error(self, error_message):
         """
@@ -678,6 +689,13 @@ class AIProfessorUI(QMainWindow):
         # 清理AI管理器资源
         if hasattr(self, 'ai_manager'):
             self.ai_manager.cleanup()
+        if hasattr(self, 'chat_widget'):
+            # 如果chat_widget中有语音线程，请求中断并清理
+            if hasattr(self.chat_widget, 'voice_thread') and self.chat_widget.voice_thread:
+                self.chat_widget.voice_thread.stop()  # 使用新增的stop()方法
+                self.chat_widget.voice_thread.wait(1000)  # 等待线程完成，最多1秒
+            
+            self.chat_widget.closeEvent(event)
         
         # 停止任何正在运行的处理线程
         if self.data_manager.current_thread is not None and self.data_manager.current_thread.isRunning():
