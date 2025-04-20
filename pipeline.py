@@ -51,7 +51,7 @@ class Pipeline(QObject):
             'tiling': self._stage_tiling,
             'translate': self._stage_translate,
             'md_restore': self._stage_md_restore,
-            'extra_info': self._stage_extra_info,
+            # 'extra_info': self._stage_extra_info,
             'rag': self._stage_rag
         }
         self.stages = stages or list(self.available_stages.keys())
@@ -321,7 +321,8 @@ class Pipeline(QObject):
             'id': self.paper_info['paper_id'],
             'title': title,
             'translated_title': translated_title,
-            'paths': path_dict
+            'paths': path_dict,
+            'active': False,
         }
         
         # 查找现有条目

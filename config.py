@@ -8,8 +8,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 API_BASE_URL = "YOUR_API_URL"
 API_KEY = "YOUR_API_KEY"
 
-TTS_GROUP_ID = "YOUR_MINIMAX_GROUP_ID"
-TTS_API_KEY = "YOUR_MINIMAX_API_KEY"
 
 # 嵌入模型配置
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
@@ -73,7 +71,7 @@ class LLMClient:
         """
         try:
             response = self.client.chat.completions.create(
-                model="deepseek-v3-250324",
+                model="deepseek-chat",
                 messages=messages,
                 temperature=temperature,
                 stream=stream
@@ -110,7 +108,7 @@ class LLMClient:
         """
         try:
             response = self.client.chat.completions.create(
-                model="deepseek-v3-250324",
+                model="deepseek-chat",
                 messages=messages,
                 temperature=temperature,
                 stream=True
@@ -183,7 +181,14 @@ class EmbeddingModel:
             # 检查CUDA可用性
             try:
                 import torch
-                device = "cuda" if torch.cuda.is_available() else "cpu"
+                if torch.cuda.is_available():
+                    device = "cuda"
+                elif torch.mps.is_available():
+                    device = "mps"
+                elif torch.xpu.is_available():
+                    device = "xpu"
+                else:
+                    device = "cpu"
             except ImportError:
                 device = "cpu"
                 

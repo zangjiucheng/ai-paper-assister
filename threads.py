@@ -46,7 +46,7 @@ class AIResponseThread(QThread):
         self.query = ""
         self.paper_id = None
         self.visible_content = None
-        self.use_streaming = True  # 默认使用流式响应
+        self.use_streaming = False  # 默认使用流式响应
     
     def set_request(self, query, paper_id=None, visible_content=None):
         """设置请求参数"""
@@ -61,14 +61,14 @@ class AIResponseThread(QThread):
             response = ""
             try:
                 # 修改这里，接收情绪参数
-                for sentence, emotion, scroll_info in self.ai_chat.process_query_stream(self.query, self.visible_content):
+                for sentence, scroll_info in self.ai_chat.process_query_stream(self.query, self.visible_content):
                     # 检查线程是否被请求中断
                     if self.isInterruptionRequested():
                         print("AI响应生成被中断")
                         break
                         
                     # 发射句子信号，传递实际情绪
-                    self.sentence_ready.emit(sentence, emotion, scroll_info)
+                    self.sentence_ready.emit(sentence, scroll_info)
                     response += sentence
             except Exception as e:
                 print(f"AI响应生成失败: {str(e)}")
@@ -91,7 +91,7 @@ class AIResponseThread(QThread):
                     
                 # 发射完整响应信号
                 if response:
-                    self.response_ready.emit(response[-1][0])  # 只发送最后一个结果的句子部分
+                    self.response_ready.emit(" ".join([item[0] for item in response]))  # 拼接所有结果的句子部分并发送
             except Exception as e:
                 print(f"AI响应生成失败: {str(e)}")
                 self.response_ready.emit(f"抱歉，处理您的问题时出现错误: {str(e)}")

@@ -4,7 +4,6 @@ import os
 from typing import List, Dict, Any, Generator, Tuple
 from config import LLMClient
 
-AI_CHARACTER_PROMPT_PATH = "prompt/ai_character_prompt_leidian.txt"
 AI_EXPLAIN_PROMPT_PATH = "prompt/ai_explain_prompt.txt"
 AI_ROUTER_PROMPT_PATH = "prompt/ai_router_prompt.txt"
 
@@ -116,7 +115,6 @@ class AIProfessorChat:
             print(f"\n==== 决策结果 ====\n{json.dumps(decision, ensure_ascii=False, indent=2)}")
             
             # 3. 根据决策选择策略
-            emotion = decision.get('emotion', 'neutral')
             function_name = decision.get('function', 'direct_answer')
             optimized_query = decision.get('query', query)  # 获取优化后的查询
             
@@ -153,7 +151,6 @@ class AIProfessorChat:
             final_messages = self._prepare_final_messages(
                 query=query,
                 context_info=context_info,
-                emotion=emotion,
                 optimized_query=optimized_query,  # 传递优化后的查询
                 function_name=function_name  # 传递回答策略
             )
@@ -177,16 +174,16 @@ class AIProfessorChat:
             for sentence in response_generator:
                 full_response += sentence
                 if first_sentence:
-                    yield sentence, emotion, scroll_info  # 添加情绪参数
+                    yield sentence, scroll_info  # 添加情绪参数
                     first_sentence = False
                 else:
-                    yield sentence, emotion, None  # 添加情绪参数
+                    yield sentence, None  # 添加情绪参数
             
             # 9. 记录AI回答到对话历史
             self.conversation_history.append({"role": "assistant", "content": full_response})
             
             print(f"\n==== LLM完整响应 ====\n{full_response}")
-            
+
         except Exception as e:
             error_msg = f"流式处理查询失败: {str(e)}"
             self.logger.error(error_msg)
@@ -211,17 +208,11 @@ class AIProfessorChat:
             bool: 验证通过返回True，否则返回False
         """
         # 检查必要字段
-        required_fields = ["emotion", "function", "query"]
+        required_fields = ["function", "query"]
         if not all(field in decision_data for field in required_fields):
             self.logger.warning("决策数据缺少必要字段")
             return False
         
-        # 确保emotion在有效范围内
-        valid_emotions = ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"]
-        if decision_data["emotion"] not in valid_emotions:
-            self.logger.warning(f"无效的情绪类型: {decision_data['emotion']}")
-            return False
-            
         # 确保function在有效范围内
         valid_functions = ["direct_answer", "page_content_analysis", "macro_retrieval", "rag_retrieval"]
         if decision_data["function"] not in valid_functions:
@@ -237,11 +228,10 @@ class AIProfessorChat:
             query: 用户查询
                 
         Returns:
-            Dict[str, str]: 包含emotion, function, query的决策字典
+            Dict[str, str]: 包含 function, query的决策字典
         """
         # 默认决策结果
         default_decision = {
-            "emotion": "neutral",
             "function": "direct_answer",
             "query": query  # 默认使用原始查询
         }
@@ -328,7 +318,6 @@ class AIProfessorChat:
             # 5. 返回决策结果：如果decision_data有效则使用它，否则使用默认值
             if decision_data and self._validate_decision(decision_data):
                 return {
-                    "emotion": decision_data["emotion"],
                     "function": decision_data["function"],
                     "query": decision_data["query"]
                 }
@@ -434,13 +423,12 @@ class AIProfessorChat:
             self.logger.error(f"RAG检索失败: {str(e)}")
             return "", None
     
-    def _prepare_final_messages(self, query: str, context_info: str, emotion: str, optimized_query: str = None, function_name: str = None) -> List[Dict[str, str]]:
+    def _prepare_final_messages(self, query: str, context_info: str, optimized_query: str = None, function_name: str = None) -> List[Dict[str, str]]:
         """准备最终发送给LLM的消息列表
         
         Args:
             query: 原始用户查询
             context_info: 上下文信息
-            emotion: 情绪类型
             optimized_query: 优化后的查询
             function_name: 回答策略
             
@@ -450,7 +438,6 @@ class AIProfessorChat:
         messages = []
         
         # 读取角色提示词和解释提示词
-        character_prompt = self._read_file(AI_CHARACTER_PROMPT_PATH)
         explain_prompt = self._read_file(AI_EXPLAIN_PROMPT_PATH)
         
         # 添加论文标题到系统提示(如果有)
@@ -463,7 +450,7 @@ class AIProfessorChat:
         explain_prompt = explain_prompt.format(title=title)
         
         # 系统提示 - 使用回车拼接提示词
-        system_message = f"{character_prompt}\n{explain_prompt}"
+        system_message = f"{explain_prompt}"
         
         messages.append({"role": "system", "content": system_message})
         
@@ -472,7 +459,7 @@ class AIProfessorChat:
             messages.extend(self.conversation_history[:-1])  
         
         # 构建用户查询 - 包含原始查询和优化查询
-        final_query = f"当前用户消息：{query}\n\n你的回答情绪应该是：{emotion}"
+        final_query = f"当前用户消息：{query}"
         
         # 如果有上下文信息，根据function_name添加对应的信息类型说明
         if context_info:

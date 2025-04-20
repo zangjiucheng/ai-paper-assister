@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QTextEdit, QScrollArea, QLabel, QFrame, QComboBox)
-from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtGui import QIcon, QFont
+                           QTextEdit, QScrollArea, QLabel, QFrame)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 
 # 导入自定义组件和工具类
 from paths import get_asset_path
@@ -28,12 +29,17 @@ class ChatWidget(QWidget):
         self.paper_controller = None  # 论文控制器引用
         self.loading_bubble = None  # 加载动画引用
         self.is_voice_active = False  # 语音功能是否激活
+
+        self.collapsed_width = 100
+        self.expanded_width = 450  # 减小侧边栏宽度
+        self.is_expanded = True
+        self.setMaximumWidth(self.expanded_width)  # 设置最大宽度
         
         # 初始化UI
         self.init_ui()
         
         # 界面显示后立即初始化语音功能
-        QTimer.singleShot(500, self.init_voice_recognition)
+        # QTimer.singleShot(500, self.init_voice_recognition)
         
     def set_ai_controller(self, ai_controller:AIManager):
         """设置AI控制器引用"""
@@ -41,12 +47,6 @@ class ChatWidget(QWidget):
         # 连接AI控制器信号
         self.ai_controller.ai_response_ready.connect(self.on_ai_response_ready)
         self.ai_controller.ai_sentence_ready.connect(self.on_ai_sentence_ready)  
-        self.ai_controller.voice_text_received.connect(self.on_voice_text_received)
-        self.ai_controller.vad_started.connect(self.on_vad_started)
-        self.ai_controller.vad_stopped.connect(self.on_vad_stopped)
-        self.ai_controller.voice_error.connect(self.on_voice_error)
-        self.ai_controller.voice_ready.connect(self.on_voice_ready)
-        self.ai_controller.voice_device_switched.connect(self.on_device_switched)
         # 新增信号连接
         self.ai_controller.ai_generation_cancelled.connect(self.on_ai_generation_cancelled)
         
@@ -106,13 +106,71 @@ class ChatWidget(QWidget):
         
         # 设置标题文本和字体
         title_font = QFont("Source Han Sans SC", 11, QFont.Weight.Bold)
-        title_label = QLabel("你的导师")
+        title_label = QLabel("AI助手")
         title_label.setFont(title_font)
         title_label.setStyleSheet("color: white; font-weight: bold;")
-        
-        title_layout.addWidget(title_label)
+
+
+        self.toggle_button = QPushButton("<<")
+        self.toggle_button.setMaximumWidth(30)
+        self.toggle_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.toggle_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                color: white;
+                font-weight: bold;
+                background-color: transparent;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+            }
+        """)
+        self.toggle_button.clicked.connect(self.toggle_ai_chat)
+        self.toggle_button.setShortcut("Ctrl+Shift+C")  # 设置快捷键
+
+        title_layout.addWidget(title_label, 0, Qt.AlignmentFlag.AlignLeft)
+        title_layout.addWidget(self.toggle_button, 0, Qt.AlignmentFlag.AlignRight)
         
         return title_bar
+
+    def toggle_ai_chat(self):
+        """切换侧边栏展开/折叠状态"""
+        self.is_expanded = not self.is_expanded
+        
+        target_width = self.expanded_width if self.is_expanded else self.collapsed_width
+        
+        # 创建动画
+        self.animation = QPropertyAnimation(self, b"maximumWidth")
+        self.animation.setDuration(300)
+        self.animation.setStartValue(self.width())
+        self.animation.setEndValue(target_width)
+        self.animation.setEasingCurve(QEasingCurve.Type.InOutQuart)
+        
+        # 同时设置最小宽度
+        self.min_anim = QPropertyAnimation(self, b"minimumWidth")
+        self.min_anim.setDuration(300)
+        self.min_anim.setStartValue(self.width())
+        self.min_anim.setEndValue(target_width)
+        self.min_anim.setEasingCurve(QEasingCurve.Type.InOutQuart)
+        
+        # 更新按钮文本
+        if self.is_expanded:
+            button_text = "<<"
+        else:
+            button_text = ">>"
+        
+        self.toggle_button.setText(button_text)
+        self.toggle_button.setShortcut("Ctrl+Shift+C")  # 设置快捷键
+        
+        # 显示/隐藏其他内容
+        self.scroll_area.setVisible(self.is_expanded)
+        self.message_input.setVisible(self.is_expanded)
+        self.send_button.setVisible(self.is_expanded)
+        
+        # 启动动画
+        self.animation.start()
+        self.min_anim.start()
     
     def create_chat_container(self):
         """
@@ -142,11 +200,11 @@ class ChatWidget(QWidget):
         self.scroll_area = self.create_message_display_area()
         
         # 创建输入区域
-        input_frame = self.create_input_area()
+        self.input_frame = self.create_input_area()
         
         # 添加到容器布局
         container_layout.addWidget(self.scroll_area, 1)
-        container_layout.addWidget(input_frame)
+        container_layout.addWidget(self.input_frame)
         
         return chat_container
     
@@ -208,7 +266,7 @@ class ChatWidget(QWidget):
         
         # 创建文本输入框
         self.message_input = QTextEdit()
-        self.message_input.setPlaceholderText("输入您对导师的问题...")
+        self.message_input.setPlaceholderText("输入您的问题...")
         self.message_input.setMaximumHeight(100)
         self.message_input.setObjectName("messageInput")
         self.message_input.setStyleSheet("""
@@ -230,129 +288,18 @@ class ChatWidget(QWidget):
         control_layout.setContentsMargins(0, 8, 0, 0)
         control_layout.setSpacing(12)  # 增加控件间距
         
-        # 创建语音控制区
-        voice_container = self.create_voice_container()
-        
         # 创建发送按钮
-        send_button = self.create_send_button()
+        self.send_button = self.create_send_button()
         
         # 添加到控制布局
-        control_layout.addWidget(voice_container)
         control_layout.addStretch(1)
-        control_layout.addWidget(send_button)
+        control_layout.addWidget(self.send_button)
         
         # 添加到主布局
         input_layout.addWidget(self.message_input)
         input_layout.addWidget(control_container)
         
         return input_frame
-    
-    def create_voice_container(self):
-        """
-        创建语音控制容器，包含状态指示灯、麦克风按钮和设备选择
-        """
-        # 创建容器
-        voice_container = QWidget()
-        voice_layout = QHBoxLayout(voice_container)
-        voice_layout.setContentsMargins(0, 0, 0, 0)
-        voice_layout.setSpacing(10)
-        
-        # 状态指示灯 - 保持不变
-        self.voice_status_indicator = QLabel()
-        self.voice_status_indicator.setFixedSize(10, 10)
-        self.voice_status_indicator.setStyleSheet("""
-            background-color: #9E9E9E;
-            border-radius: 5px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        """)
-        voice_layout.addWidget(self.voice_status_indicator)
-        
-        # 麦克风按钮 - 保持不变
-        self.voice_button = self.create_voice_button()
-        voice_layout.addWidget(self.voice_button)
-        
-        # 创建可交互的设备选择组件
-        self.device_combo = QComboBox()
-        self.device_combo.setFixedWidth(185)
-        self.device_combo.setObjectName("deviceCombo")
-        
-        # 优化样式：修复三角形和添加下拉列表圆角
-        self.device_combo.setStyleSheet("""
-            QComboBox {
-                border: 1px solid #C5CAE9;
-                border-radius: 5px;
-                padding: 4px 10px 4px 8px;
-                background-color: white;
-                color: #303F9F;
-                font-size: 12px;
-                selection-background-color: #E8EAF6;
-            }
-            QComboBox:hover {
-                border: 1px solid #7986CB;
-                background-color: #F5F7FA;
-            }
-            QComboBox:focus {
-                border: 1px solid #3F51B5;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                width: 16px;
-                border-left: 1px solid #C5CAE9;
-                border-top-right-radius: 4px;
-                border-bottom-right-radius: 4px;
-                background-color: #E8EAF6;
-            }
-            QComboBox::down-arrow {
-                image: url(""" + get_asset_path("down_arrow.svg").replace("\\", "/") + """);
-                width: 10px;
-                height: 10px;
-            }
-            QComboBox QAbstractItemView {
-                border: 1px solid #C5CAE9;
-                selection-background-color: #E8EAF6;
-                selection-color: #303F9F;
-                background-color: white;
-                border-radius: 5px;
-                padding: 5px;
-                outline: none;
-            }
-        """)
-        
-        # 连接信号
-        self.device_combo.currentIndexChanged.connect(self.on_device_changed)
-        voice_layout.addWidget(self.device_combo)
-        
-        return voice_container
-    
-    def create_voice_button(self):
-        """
-        创建语音按钮
-        
-        Returns:
-            QPushButton: 配置好的语音按钮
-        """
-        voice_button = QPushButton()
-        voice_button.setIcon(QIcon(get_asset_path("microphone.svg")))
-        voice_button.setObjectName("voiceButton")
-        voice_button.setFixedSize(32, 32)
-        voice_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        voice_button.setToolTip("点击开启/关闭语音识别")
-        voice_button.setIconSize(QSize(16, 16))
-        voice_button.setStyleSheet("""
-            #voiceButton {
-                background-color: #E3F2FD;
-                border: 1px solid #BBDEFB;
-                border-radius: 16px;
-                padding: 5px;
-            }
-            #voiceButton:hover {
-                background-color: #BBDEFB;
-            }
-        """)
-        voice_button.clicked.connect(self.toggle_voice_chat)
-        
-        return voice_button
     
     def create_send_button(self):
         """
@@ -424,27 +371,6 @@ class ChatWidget(QWidget):
 
         # 如果有AI控制器，则使用AI控制器处理消息
         if self.ai_controller:
-            # 如果已经有正在生成的响应或TTS正在播放，先取消它
-            if self.ai_controller.is_busy():
-                # 中止当前的AI生成和TTS播放
-                self.ai_controller.cancel_current_response()
-                
-                # 如果尚未生成任何内容，检查是否需要合并问题
-                if not self.ai_controller.accumulated_response and self.ai_controller.ai_chat:
-                    history = self.ai_controller.ai_chat.conversation_history
-                    if len(history) >= 1 and history[-1]["role"] == "user":
-                        # 找到上一个用户问题
-                        prev_question = history[-1]["content"]
-                        # 合并问题
-                        combined_question = f"{prev_question} {message}"
-                        print(f"合并连续问题: '{combined_question}'")
-                        
-                        # 更新历史记录中的问题
-                        history[-1]["content"] = combined_question
-                        
-                        # 更新message为合并后的问题
-                        message = combined_question
-            
             # 获取当前论文ID，如果有的话
             paper_id = None
             if self.paper_controller and self.paper_controller.current_paper:
@@ -509,13 +435,14 @@ class ChatWidget(QWidget):
         
         对于流式响应，主要通过on_ai_sentence_ready处理
         """
+
         # 如果仍有加载动画，说明是非流式响应或没有分句成功，移除加载动画
         if self.loading_bubble is not None:
             self.loading_bubble.stop_animation()
             self.messages_layout.removeWidget(self.loading_bubble)
             self.loading_bubble.deleteLater()
             self.loading_bubble = None
-            
+
             # 对于非流式响应，才直接显示完整回复
             if not self.ai_controller.ai_response_thread.use_streaming:
                 self.receive_ai_message(response)
@@ -539,174 +466,6 @@ class ChatWidget(QWidget):
             self.scroll_area.verticalScrollBar().maximum()
         )
     
-    def toggle_voice_chat(self):
-        """切换语音聊天功能开关"""
-        if not self.ai_controller:
-            return
-            
-        self.is_voice_active = not self.is_voice_active
-        success = self.ai_controller.toggle_voice_detection(self.is_voice_active)
-        
-        # 更新UI状态
-        if success and self.is_voice_active:
-            # 绿色表示激活待命状态
-            self.set_indicator_color(self.COLOR_ACTIVE)
-            self.voice_button.setToolTip("点击关闭语音识别")
-            self.voice_button.setStyleSheet("""
-                #voiceButton {
-                    background-color: #303F9F;
-                    border: 1px solid #1A237E;
-                    border-radius: 16px;
-                    padding: 5px;
-                }
-                #voiceButton:hover {
-                    background-color: #3949AB;
-                }
-            """)
-        else:
-            self.is_voice_active = False  # 如果失败，重置状态
-            # 蓝色表示初始化完成但未激活
-            self.set_indicator_color(self.COLOR_INIT)
-            self.voice_button.setToolTip("点击开启语音识别")
-            self.voice_button.setStyleSheet("""
-                #voiceButton {
-                    background-color: #E3F2FD;
-                    border: 1px solid #BBDEFB;
-                    border-radius: 16px;
-                    padding: 5px;
-                }
-                #voiceButton:hover {
-                    background-color: #BBDEFB;
-                }
-            """)
-    
-    def set_indicator_color(self, color):
-        """设置语音状态指示灯颜色"""
-        self.voice_status_indicator.setStyleSheet(f"""
-            background-color: {color}; 
-            border-radius: 5px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        """)
-    
-    def init_voice_recognition(self):
-        """初始化语音识别"""
-        if self.ai_controller:
-            # 初始化前先设置为灰色，表示系统正在初始化
-            self.set_indicator_color(self.COLOR_UNINIT)
-            
-            # 初始化设备列表
-            self.refresh_devices()
-            
-            # 获取选中的设备ID
-            device_id = self.get_selected_device_index()
-            
-            # 初始化AI管理器中的语音识别
-            self.ai_controller.init_voice_recognition(device_id)
-    
-    def refresh_devices(self):
-        """刷新设备列表"""
-        if not self.ai_controller:
-            return
-            
-        try:
-            # 保存当前选择
-            current_index = self.device_combo.currentIndex()
-            current_device_id = self.device_combo.currentData() if current_index >= 0 else None
-            
-            # 清空并重新填充设备列表
-            self.device_combo.clear()
-            
-            # 获取设备列表
-            devices = self.ai_controller.get_voice_devices()
-            for device_id, device_name in devices:
-                self.device_combo.addItem(device_name, device_id)
-            
-            # 尝试恢复之前选择
-            if current_device_id is not None:
-                index = self.device_combo.findData(current_device_id)
-                if index >= 0:
-                    self.device_combo.setCurrentIndex(index)
-                        
-        except Exception as e:
-            print(f"刷新设备列表失败: {str(e)}")
-    
-    def get_selected_device_index(self):
-        """获取当前选择的设备索引"""
-        index = self.device_combo.currentIndex()
-        if index >= 0:
-            return self.device_combo.itemData(index)
-        return 1  # 默认设备索引
-    
-    def on_device_changed(self, index):
-        """设备选择变更事件"""
-        if index < 0 or not self.ai_controller:
-            return
-                
-        device_id = self.device_combo.itemData(index)
-        
-        # 设置为灰色表示开始初始化
-        self.set_indicator_color(self.COLOR_UNINIT)
-        self.device_combo.setEnabled(False)
-        
-        # 切换设备
-        success = self.ai_controller.switch_voice_device(device_id)
-        if not success:  # 如果切换立即失败
-            self.device_combo.setEnabled(True)
-            self.set_indicator_color(self.COLOR_ERROR)
-            QTimer.singleShot(2000, lambda: 
-                self.set_indicator_color(self.COLOR_ACTIVE) if self.is_voice_active 
-                else self.set_indicator_color(self.COLOR_INIT))
-    
-    def on_device_switched(self, success):
-        """设备切换结果处理"""
-        self.device_combo.setEnabled(True)
-        
-        if success:
-            if self.is_voice_active:
-                # 如果语音激活，恢复绿色
-                self.set_indicator_color(self.COLOR_ACTIVE)
-            else:
-                # 如果语音未激活，恢复蓝色
-                self.set_indicator_color(self.COLOR_INIT)
-        else:
-            # 错误时显示红色
-            self.set_indicator_color(self.COLOR_ERROR)
-            QTimer.singleShot(2000, lambda: 
-                self.set_indicator_color(self.COLOR_ACTIVE) if self.is_voice_active 
-                else self.set_indicator_color(self.COLOR_INIT))
-    
-    def on_voice_text_received(self, text):
-        """接收到语音文本"""
-        self.message_input.setText(text)
-        # 自动发送
-        self.send_message()
-    
-    def on_vad_started(self):
-        """检测到语音活动开始"""
-        if self.is_voice_active:
-            # 变为黄色表示检测到语音活动
-            self.set_indicator_color(self.COLOR_VAD)
-    
-    def on_vad_stopped(self):
-        """检测到语音活动结束"""
-        if self.is_voice_active:
-            # 回到绿色表示激活待命状态
-            self.set_indicator_color(self.COLOR_ACTIVE)
-    
-    def on_voice_error(self, error_message):
-        """语音识别错误"""
-        print(f"语音识别错误: {error_message}")
-        self.set_indicator_color(self.COLOR_ERROR)
-        QTimer.singleShot(2000, lambda: 
-            self.set_indicator_color(self.COLOR_ACTIVE) if self.is_voice_active 
-            else self.set_indicator_color(self.COLOR_INIT))
-    
-    def on_voice_ready(self):
-        """语音识别准备就绪"""
-        # 启用对话按钮
-        self.voice_button.setEnabled(True)
-        # 初始化完成后设置为蓝色待命状态
-        self.set_indicator_color(self.COLOR_INIT)
     
     def eventFilter(self, obj, event):
         """

@@ -1,3 +1,12 @@
+# 该项目是 LinYi's Team 的 mad-professor 的一个分支，主要用于个人论文阅读
+- 删除部分TTS功能减少项目复杂性，增加稳定性
+- 添加对MacOS的支持
+- 添加快捷键（例如对于Vim-like的键位绑定）
+- 添加更多管理阅读PDF的功能
+![](assets/new_demo.png)
+
+***
+
 # 暴躁的教授读论文（mad-professor）
 一个Python应用程序，特色是具有暴躁个性的AI教授，让学术论文阅读更加高效有趣。
 

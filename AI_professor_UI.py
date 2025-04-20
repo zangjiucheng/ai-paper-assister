@@ -1,4 +1,6 @@
 import os
+import sys
+import subprocess
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QPushButton, QSplitter, 
                            QLabel, QFrame)
@@ -41,16 +43,13 @@ class AIProfessorUI(QMainWindow):
         # 加载论文数据
         self.data_manager.load_papers_index()
         
-        # 显示欢迎信息
-        self.show_welcome_message()
-        
         # 在后台预加载所有论文向量库
         self.ai_manager.init_rag_retriever("output")
 
     def init_window_properties(self):
         """初始化窗口属性：大小、图标、状态栏和窗口风格"""
         # 设置窗口标题和初始大小
-        self.setWindowTitle("暴躁的教授读论文")
+        self.setWindowTitle("读论文助手")
         self.setGeometry(100, 100, 1400, 900)
         
         # 添加状态栏
@@ -107,7 +106,7 @@ class AIProfessorUI(QMainWindow):
         app_icon.setPixmap(self.windowIcon().pixmap(16, 16))
         
         # 设置应用标题
-        app_title = QLabel("暴躁的教授读论文")
+        app_title = QLabel("读论文助手")
         app_title.setStyleSheet("color: white; font-weight: bold;")
         
         # 创建窗口控制按钮
@@ -149,16 +148,18 @@ class AIProfessorUI(QMainWindow):
         """
         
         # 最小化按钮
-        self.btn_minimize = QPushButton("🗕")
+        self.btn_minimize = QPushButton("﹣")
         self.btn_minimize.setStyleSheet(btn_style)
         self.btn_minimize.clicked.connect(self.showMinimized)
         self.btn_minimize.setToolTip("最小化")
+        self.btn_minimize.setShortcut("Ctrl+M")
         self.btn_minimize.setCursor(Qt.CursorShape.PointingHandCursor)
         
         # 最大化/还原按钮
-        self.btn_maximize = QPushButton("🗖")
+        self.btn_maximize = QPushButton("z")
         self.btn_maximize.setStyleSheet(btn_style)
         self.btn_maximize.clicked.connect(self.toggle_maximize)
+        self.btn_maximize.setShortcut("Ctrl+F")
         self.btn_maximize.setToolTip("最大化")
         self.btn_maximize.setCursor(Qt.CursorShape.PointingHandCursor)
         
@@ -176,7 +177,7 @@ class AIProfessorUI(QMainWindow):
                 border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #E81123;
+                background-color: #FF3B30; /* macOS close button red */
                 border-radius: 4px;
             }
         """)
@@ -206,12 +207,13 @@ class AIProfessorUI(QMainWindow):
         """切换窗口最大化/还原状态"""
         if self.isMaximized():
             self.showNormal()
-            self.btn_maximize.setText("🗖")
+            self.btn_maximize.setText("z")
             self.btn_maximize.setToolTip("最大化")
         else:
             self.showMaximized()
-            self.btn_maximize.setText("🗗")
+            self.btn_maximize.setText("r")
             self.btn_maximize.setToolTip("还原")
+        self.btn_maximize.setShortcut("Ctrl+F")
 
     def init_ui_components(self):
         """
@@ -388,10 +390,35 @@ class AIProfessorUI(QMainWindow):
         """)
         self.lang_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.lang_button.clicked.connect(self.toggle_language)
+
+        self.pdf_button = QPushButton("View Original PDF")
+        self.pdf_button.setObjectName("pdfButton")
+        self.pdf_button.setStyleSheet("""
+            #pdfButton {
+                background-color: rgba(255, 0, 0, 0.4);
+                color: white;
+                border: 1px solid rgba(255, 0, 0, 0.6);
+                border-radius: 8px;
+                padding: 5px 15px;
+                font-weight: bold;
+            }
+            #pdfButton:hover {
+                background-color: rgba(255, 0, 0, 0.6);
+            }
+        """)
+        self.pdf_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pdf_button.clicked.connect(self.toggle_pdf)
+        self.pdf_button.setShortcut("Ctrl+P")
+        self.pdf_button.setToolTip("View Original PDF")
         
         # 添加到布局
         toolbar_layout.addWidget(doc_title, 0, Qt.AlignmentFlag.AlignLeft)
-        toolbar_layout.addWidget(self.lang_button, 0, Qt.AlignmentFlag.AlignRight)
+        combo_widget = QWidget()
+        combo_layout = QHBoxLayout(combo_widget)
+        combo_layout.setContentsMargins(0, 0, 0, 0)
+        combo_layout.addWidget(self.lang_button)
+        combo_layout.addWidget(self.pdf_button)
+        toolbar_layout.addWidget(combo_widget, 0, Qt.AlignmentFlag.AlignRight)
         
         return toolbar
 
@@ -442,6 +469,9 @@ class AIProfessorUI(QMainWindow):
         # 连接侧边栏的论文选择信号
         self.sidebar.paper_selected.connect(self.on_paper_selected)
 
+        # Toggle Active
+        self.sidebar.toggle_active.connect(self.data_manager.toggle_active)
+
         # 连接处理进度信号
         self.data_manager.processing_progress.connect(self.on_processing_progress)
         self.data_manager.processing_finished.connect(self.on_processing_finished)
@@ -472,6 +502,16 @@ class AIProfessorUI(QMainWindow):
         # 通知数据管理器加载选定的论文
         self.data_manager.load_paper_content(paper_id)
 
+    def toggle_active(self, paper_id):
+        """
+        切换论文的激活状态
+        
+        Args:
+            paper_id: 论文ID
+        """
+        # 通知数据管理器切换选定的论文激活状态
+        self.data_manager.toggle_active(paper_id)
+
     def on_paper_content_loaded(self, paper, zh_content, en_content):
         """
         处理论文内容加载完成的信号
@@ -488,6 +528,7 @@ class AIProfessorUI(QMainWindow):
         
         # 更新语言按钮文本
         self.lang_button.setText("切换为英文")
+        self.lang_button.setShortcut("Ctrl+L")
         self.lang_button.setStyleSheet("""
             #langButton {
                 background-color: rgba(255, 255, 255, 0.2);
@@ -531,29 +572,32 @@ class AIProfessorUI(QMainWindow):
         # 更新状态栏
         self.statusBar().showMessage(message)
 
-    def show_welcome_message(self):
-        """显示欢迎信息"""
-        welcome_md = """
-# 哼！又来一个不读论文的学生是吧？
-
-很好，至少你知道打开这个软件。我是你的论文指导教授，**不要期望我对你手下留情**。
-
-## 听好了，这是你能做的事：
-
-- **选论文**：左边那一堆，挑一篇你能看懂的（如果有的话）
-- **换语言**：中英文看不懂？按上面那个按钮切换，别指望换了语言就能理解内容
-- **问问题**：有不懂的就右边提问，我会回答，虽然你的问题可能很蠢
-- **看摘要**：懒得读全文？我给你总结重点，省得你到处抓瞎
-
-## 开始用吧，别磨蹭！
-
-从左边随便选一篇，然后开始读。有不明白的就问我，**别憋着装懂**！
-
-记住：_真正的学术是刀尖起舞，而不是像你平时那样浅尝辄止！_
-
-...不过别担心，我会一直在这陪你读完的。
-"""
-        self.md_view.load_markdown(welcome_md)
+    def toggle_pdf(self):
+        """
+        切换PDF查看器
+        """
+        current_paper = self.data_manager.current_paper
+        if current_paper and current_paper.get('id'):
+            pdf_path = os.path.join("data", f"{current_paper.get('id')}.pdf")
+            if os.path.exists(pdf_path):
+                try:
+                    if os.name == 'nt':
+                        # Windows系统
+                        subprocess.Popen(['start', pdf_path], shell=True)
+                    elif sys.platform == 'darwin':
+                        # macOS系统
+                        subprocess.Popen(['open', pdf_path])
+                    else:
+                        # Linux系统
+                        subprocess.Popen(['xdg-open', pdf_path])
+                    self.statusBar().showMessage(f"打开PDF文件: {pdf_path}")
+                except Exception as e:
+                    self.statusBar().showMessage(f"打开PDF文件失败: {e}")
+            else:
+                self.statusBar().showMessage("PDF文件不存在")
+        else:
+            self.statusBar().showMessage("未加载论文或未指定PDF路径")
+        pass
 
     def toggle_language(self):
         """
@@ -596,6 +640,7 @@ class AIProfessorUI(QMainWindow):
             """)
             
         self.lang_button.setText(btn_text)
+        self.lang_button.setShortcut("Ctrl+L")
         
         # 更新状态栏
         current_paper = self.data_manager.current_paper

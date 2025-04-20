@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                            QListWidget, QListWidgetItem, QLabel, QFrame)
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
+from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtGui import QFont
 
 from ui.upload_widget import UploadWidget  # 导入上传文件窗口类
@@ -12,6 +13,7 @@ class SidebarWidget(QWidget):
     upload_file = pyqtSignal(str)  # 上传文件信号，传递文件路径（转发）
     pause_processing = pyqtSignal()  # 暂停处理信号（转发）
     resume_processing = pyqtSignal()  # 继续处理信号（转发）
+    toggle_active = pyqtSignal(str)  # 切换激活状态信号（转发）
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -138,6 +140,12 @@ class SidebarWidget(QWidget):
         # 连接论文列表点击信号
         self.paper_list.itemClicked.connect(self.on_paper_item_clicked)
         
+        for i in range(1, 10):  # 支持 1-9 键
+            shortcut = QShortcut(QKeySequence(f"Ctrl+{i}"), self)
+            shortcut.activated.connect(lambda i=i: self.select_paper_by_index(i - 1))
+        
+        QShortcut(QKeySequence(f"Ctrl+t"), self).activated.connect(self.toggle_active_paper)
+        
         list_layout.addWidget(self.paper_list)
         
         # 创建上传文件窗口
@@ -199,9 +207,11 @@ class SidebarWidget(QWidget):
     def load_papers(self, papers_index):
         """加载论文索引到列表"""
         self.paper_list.clear()
-        for paper in papers_index:
+        for index, paper in enumerate(papers_index, start=1):
             # 优先使用translated_title作为显示文本
-            title = paper.get('translated_title', '') or paper.get('title', '') or paper.get('id', '')
+            title = paper.get('translated_title') or paper.get('title') or paper.get('id', '')
+            if paper.get('active') == 1:
+                title = f"{index}. {title}"
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, paper)
             self.paper_list.addItem(item)
@@ -212,6 +222,15 @@ class SidebarWidget(QWidget):
         if paper:
             # 发送论文选择信号
             self.paper_selected.emit(paper.get('id'))
+
+    def toggle_active_paper(self):
+        """切换指定论文的激活状态"""
+        item = self.paper_list.currentItem()
+        if item is None:
+            return
+        paper = item.data(Qt.ItemDataRole.UserRole)
+        if paper:
+            self.toggle_active.emit(paper.get('id'))
             
     def on_upload_file(self, file_path):
         """处理上传文件事件，转发上传文件信号"""
@@ -225,6 +244,13 @@ class SidebarWidget(QWidget):
         """处理继续处理事件，转发继续处理信号"""
         self.resume_processing.emit()
         
+    def select_paper_by_index(self, index):
+        """选择指定索引的论文"""
+        if 0 <= index < self.paper_list.count():
+            item = self.paper_list.item(index)
+            self.paper_list.setCurrentItem(item)
+            self.on_paper_item_clicked(item)
+
     def update_upload_status(self, file_name, stage, progress, pending_count):
         """更新上传状态
         
