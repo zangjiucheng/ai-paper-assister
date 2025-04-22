@@ -5,9 +5,9 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 
 # 导入自定义组件和工具类
-from paths import get_asset_path
-from ui.message_bubble import MessageBubble, LoadingBubble
-from AI_manager import AIManager
+from ..paths import get_asset_path
+from .message_bubble import MessageBubble, LoadingBubble
+from ..AI_manager import AIManager
 
 class ChatWidget(QWidget):
     """

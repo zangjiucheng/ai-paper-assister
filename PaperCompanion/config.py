@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 from typing import Optional, List, Dict, Any, Generator
 from openai import OpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -8,9 +9,11 @@ from langchain_huggingface import HuggingFaceEmbeddings
 API_BASE_URL = "YOUR_API_URL"
 API_KEY = "YOUR_API_KEY"
 
-
 # 嵌入模型配置
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
+
+# 数据存储路径
+BASE_DIR = os.path.expanduser("~/.ai-paper-assister-data")
 
 # 日志配置
 def setup_logging():

@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtGui import QFont
 
-from ui.upload_widget import UploadWidget  # 导入上传文件窗口类
+from .upload_widget import UploadWidget  # 导入上传文件窗口类
 
 class SidebarWidget(QWidget):
     """可折叠侧边栏"""

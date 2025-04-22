@@ -7,11 +7,12 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
-from ui.markdown_view import MarkdownView
-from ui.chat_widget import ChatWidget
-from ui.sidebar_widget import SidebarWidget
-from data_manager import DataManager
-from AI_manager import AIManager
+from .ui.markdown_view import MarkdownView
+from .ui.chat_widget import ChatWidget
+from .ui.sidebar_widget import SidebarWidget
+from .data_manager import DataManager
+from .AI_manager import AIManager
+from .config import BASE_DIR
 
 class AIProfessorUI(QMainWindow):
     """
@@ -25,7 +26,7 @@ class AIProfessorUI(QMainWindow):
         super().__init__()
         
         # 初始化数据管理器和AI管理器
-        self.data_manager = DataManager()
+        self.data_manager = DataManager(BASE_DIR)
         self.ai_manager = AIManager()
         
         # 设置两者互相引用
@@ -44,7 +45,7 @@ class AIProfessorUI(QMainWindow):
         self.data_manager.load_papers_index()
         
         # 在后台预加载所有论文向量库
-        self.ai_manager.init_rag_retriever("output")
+        self.ai_manager.init_rag_retriever(os.path.join(BASE_DIR,"output"))
 
     def init_window_properties(self):
         """初始化窗口属性：大小、图标、状态栏和窗口风格"""
@@ -578,7 +579,7 @@ class AIProfessorUI(QMainWindow):
         """
         current_paper = self.data_manager.current_paper
         if current_paper and current_paper.get('id'):
-            pdf_path = os.path.join("data", f"{current_paper.get('id')}.pdf")
+            pdf_path = os.path.join(self.data_manager.base_dir,"data", f"{current_paper.get('id')}.pdf")
             if os.path.exists(pdf_path):
                 try:
                     if os.name == 'nt':

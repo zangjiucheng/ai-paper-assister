@@ -2,8 +2,8 @@ import os
 import json
 import shutil
 from PyQt6.QtCore import QObject, pyqtSignal
-from pipeline import Pipeline
-from threads import ProcessingThread
+from .pipeline import Pipeline
+from .threads import ProcessingThread
 
 class DataManager(QObject):
     """

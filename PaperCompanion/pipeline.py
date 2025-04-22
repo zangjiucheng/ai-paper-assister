@@ -2,14 +2,14 @@ from pathlib import Path
 import json
 import logging
 from typing import Optional, Dict, List, Union
-from processor.pdf_processor import PDFProcessor
-from processor.md_processor import MarkdownProcessor
-from processor.json_processor import JsonProcessor
-from processor.tiling_processor import TilingProcessor
-from processor.translate_processor import TranslateProcessor
-from processor.md_restore_processor import RestoreProcessor
-from processor.extra_info_processor import ExtraInfoProcessor
-from processor.rag_processor import RagProcessor
+from .processor.pdf_processor import PDFProcessor
+from .processor.md_processor import MarkdownProcessor
+from .processor.json_processor import JsonProcessor
+from .processor.tiling_processor import TilingProcessor
+from .processor.translate_processor import TranslateProcessor
+from .processor.md_restore_processor import RestoreProcessor
+from .processor.extra_info_processor import ExtraInfoProcessor
+from .processor.rag_processor import RagProcessor
 from PyQt6.QtCore import QObject, pyqtSignal
 
 # 配置日志

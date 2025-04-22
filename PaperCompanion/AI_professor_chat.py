@@ -2,7 +2,7 @@ import logging
 import json
 import os
 from typing import List, Dict, Any, Generator, Tuple
-from config import LLMClient
+from .config import LLMClient
 
 AI_EXPLAIN_PROMPT_PATH = "prompt/ai_explain_prompt.txt"
 AI_ROUTER_PROMPT_PATH = "prompt/ai_router_prompt.txt"

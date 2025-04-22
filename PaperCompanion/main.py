@@ -2,8 +2,8 @@ import sys
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFontDatabase, QFont, QPalette, QColor, QIcon, QPixmap, QPainter, QBrush, QLinearGradient
 from PyQt6.QtCore import Qt, QRect, QPoint
-from paths import get_font_path
-from AI_professor_UI import AIProfessorUI
+from .paths import get_font_path
+from .AI_professor_UI import AIProfessorUI
 
 def generate_app_icon():
     """生成应用程序图标"""
@@ -56,7 +56,7 @@ def generate_app_icon():
     # 创建图标
     return QIcon(pixmap)
 
-if __name__ == '__main__':
+def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')  # 使用Fusion风格以获得更现代的外观
     
@@ -111,3 +111,6 @@ if __name__ == '__main__':
     window = AIProfessorUI()
     window.show()
     sys.exit(app.exec())
+
+if __name__ == '__main__':
+    main()
