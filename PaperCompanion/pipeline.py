@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import json
 import logging
@@ -32,6 +33,9 @@ class Pipeline(QObject):
         super().__init__()  # 调用QObject初始化
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
+        # 设置基础路径
+        self.base_path = os.path.dirname(os.path.abspath(__file__))
+
         # 定义阶段标识符和对应的处理函数
         self.stage_identifiers = {
             'pdf2md': '',
@@ -62,9 +66,9 @@ class Pipeline(QObject):
         self.md_processor = MarkdownProcessor()
         self.json_processor = JsonProcessor()
         self.tiling_processor = TilingProcessor()
-        self.translate_processor = TranslateProcessor()
+        self.translate_processor = TranslateProcessor(self.base_path)
         self.restore_processor = RestoreProcessor()
-        self.extra_info_processor = ExtraInfoProcessor()
+        self.extra_info_processor = ExtraInfoProcessor(self.base_path)
         self.rag_processor = RagProcessor()
         
         # 论文处理状态
