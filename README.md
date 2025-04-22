@@ -1,16 +1,22 @@
-# 该项目是 LinYi's Team 的 mad-professor 的一个分支，主要用于个人论文阅读
+# AI论文助手（AI Paper Assister）
 
+> 该项目是 LinYi's Team 的 mad-professor 的一个分支，主要用于个人论文阅读
 
-## AI论文助手（AI Paper Assister）
-- 删除部分TTS功能减少项目复杂性，增加稳定性
-- 添加对MacOS的支持
-- 添加快捷键（例如对于Vim-like的键位绑定）
-- 添加更多管理阅读PDF的功能
+**TODO LIST:**
+- [x] 删除TTS功能减少项目复杂性，增加稳定性
+- [x] 添加对MacOS的支持(MPS backend)
+- [x] 添加快捷键（例如对于Vim-like的键位绑定）
+- [x] 添加更多管理阅读PDF的功能
+- [x] 将程序作为Package呈现
+- [x] 固定使用Deepseek V3模型，增加API优惠时间提醒
+- [x] 更加容易管理论文文档 （通过Flag的方式）
+- [ ] 增加不同的处理管线
+- [ ] 添加聊天历史记录
 ![](assets/new_demo.png)
 
 ## 安装指南
 
-**具体参考原项目的安装指南（在底部）**
+**具体参考原项目的安装指南（在底部）** 
 
 1. 下载模型
    ```sh
@@ -54,6 +60,8 @@
 
 
 ***
+
+>（以下为原README内容）
 
 # 暴躁的教授读论文（mad-professor）
 一个Python应用程序，特色是具有暴躁个性的AI教授，让学术论文阅读更加高效有趣。
