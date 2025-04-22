@@ -264,18 +264,24 @@ class UploadWidget(QWidget):
     def show_file_dialog(self):
         """显示文件选择对话框"""
         options = QFileDialog.Option.ReadOnly
-        file_path, _ = QFileDialog.getOpenFileName(
+        file_paths, _ = QFileDialog.getOpenFileNames(
             self, "选择要上传的论文PDF文件", "",
             "PDF 文件 (*.pdf)", options=options
         )
+        for file_path in file_paths:
+            # 处理每个文件路径
+            self._process_file(file_path)
+
+        # 打开上传详情面板
+        if not self.is_details_expanded:
+            self.toggle_upload_details()
+            
+    def _process_file(self, file_path):
         if file_path:
             # 发送上传文件信号
             self.upload_file.emit(file_path)
             # 更新界面 - 暂时显示为"处理中"状态，实际数量将由数据管理器更新
             self.update_upload_status(os.path.basename(file_path), "初始化", 0, "...")
-            # 打开上传详情面板
-            if not self.is_details_expanded:
-                self.toggle_upload_details()
                     
     def update_upload_status(self, file_name, stage, progress, pending_count):
         """更新上传状态"""
