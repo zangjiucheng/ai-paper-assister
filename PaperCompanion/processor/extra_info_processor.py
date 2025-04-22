@@ -1,7 +1,8 @@
+import os
 import json
 import logging
 from pathlib import Path
-from config import LLMClient
+from ..config import LLMClient
 
 SUMMARY_PROMPT_PATH = "prompt/summary_generation_prompt.txt"
 QUESTION_PROMPT_PATH = "prompt/question_generation_prompt.txt"
@@ -11,11 +12,12 @@ FORMULA_ANALYSIS_PROMPT_PATH = "prompt/formula_analysis_prompt.txt"
 class ExtraInfoProcessor:
     """额外信息处理器，用于生成论文各章节的总结信息和问题"""
 
-    def __init__(self):
+    def __init__(self, base_dir: str = ""):
         """初始化额外信息处理器"""
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.llm = LLMClient()
         self.abstract_text = ""
+        self.base_dir = base_dir
         
     def _read_file(self, filepath: str) -> str:
         """读取文件内容"""
@@ -181,7 +183,7 @@ class ExtraInfoProcessor:
             return total_content.replace("\n", " ").strip()
         
         # 读取系统提示词
-        system_prompt = self._read_file(SUMMARY_PROMPT_PATH)
+        system_prompt = self._read_file(os.path.join(self.base_dir,SUMMARY_PROMPT_PATH))
         
         # 构建用户提示词
         user_prompt = f"章节标题: {section.get('translated_title', section.get('title', '未命名章节'))}\n\n"
@@ -294,7 +296,7 @@ class ExtraInfoProcessor:
             return []
         
         # 读取问题生成提示词
-        system_prompt = self._read_file(QUESTION_PROMPT_PATH)
+        system_prompt = self._read_file(os.path.join(self.base_dir,QUESTION_PROMPT_PATH))
         
         # 构建用户提示词
         user_prompt = f"上下文背景信息：{section_summary}\n需要生成问题的论文段落：{text_content}\n\n请根据要求生成问题："
@@ -328,7 +330,7 @@ class ExtraInfoProcessor:
             return []
         
         # 读取问题生成提示词
-        system_prompt = self._read_file(GRAPH_QUESTION_PROMPT_PATH)
+        system_prompt = self._read_file(os.path.join(self.base_dir,GRAPH_QUESTION_PROMPT_PATH))
         
         # 根据图表类型设置提示词
         graph_type_text = "图片" if graph_type == "figure" else "表格"
@@ -410,7 +412,7 @@ class ExtraInfoProcessor:
             return ""
 
         # 读取系统提示词
-        system_prompt = self._read_file(FORMULA_ANALYSIS_PROMPT_PATH)
+        system_prompt = self._read_file(os.path.join(self.base_dir,FORMULA_ANALYSIS_PROMPT_PATH))
 
         # 构建用户提示词，重点是让大模型结合前后文以及章节摘要，来解释公式的含义、符号意义、推导思路等
         user_prompt = f"""请对下列公式进行详细解读，并给出它在论文中的作用和意义。需要参考以下信息：

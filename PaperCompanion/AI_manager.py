@@ -1,7 +1,7 @@
 from PyQt6.QtCore import QObject, pyqtSignal, QUuid
-from AI_professor_chat import AIProfessorChat
-from threads import AIResponseThread
-from rag_retriever import RagRetriever
+from .AI_professor_chat import AIProfessorChat
+from .threads import AIResponseThread
+from .rag_retriever import RagRetriever
 import os
 
 class AIManager(QObject):

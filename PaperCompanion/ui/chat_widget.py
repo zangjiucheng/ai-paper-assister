@@ -5,9 +5,9 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 
 # 导入自定义组件和工具类
-from paths import get_asset_path
-from ui.message_bubble import MessageBubble, LoadingBubble
-from AI_manager import AIManager
+from ..paths import get_asset_path
+from .message_bubble import MessageBubble, LoadingBubble
+from ..AI_manager import AIManager
 
 class ChatWidget(QWidget):
     """
@@ -266,7 +266,7 @@ class ChatWidget(QWidget):
         
         # 创建文本输入框
         self.message_input = QTextEdit()
-        self.message_input.setPlaceholderText("输入您的问题...")
+        self.message_input.setPlaceholderText("请输入您的问题...")
         self.message_input.setMaximumHeight(100)
         self.message_input.setObjectName("messageInput")
         self.message_input.setStyleSheet("""
@@ -277,6 +277,10 @@ class ChatWidget(QWidget):
                 padding: 10px;  /* 增加内边距 */
                 font-family: 'Source Han Sans SC', 'Segoe UI', sans-serif;
                 font-size: 13px;
+            }
+            QTextEdit[placeholderText] {
+            color: #999999;
+            font-style: italic;
             }
         """)
         # 连接回车键发送功能

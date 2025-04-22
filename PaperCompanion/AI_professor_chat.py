@@ -2,7 +2,7 @@ import logging
 import json
 import os
 from typing import List, Dict, Any, Generator, Tuple
-from config import LLMClient
+from .config import LLMClient
 
 AI_EXPLAIN_PROMPT_PATH = "prompt/ai_explain_prompt.txt"
 AI_ROUTER_PROMPT_PATH = "prompt/ai_router_prompt.txt"
@@ -24,7 +24,6 @@ class AIProfessorChat:
         
         # 设置基础路径
         self.base_path = os.path.dirname(os.path.abspath(__file__))
-        self.output_path = os.path.join(self.base_path, "output")
         
         # 对话历史 (保持最近10条)
         self.conversation_history = []
@@ -238,7 +237,7 @@ class AIProfessorChat:
         
         try:
             # 1. 读取并准备决策提示词
-            router_prompt = self._read_file(AI_ROUTER_PROMPT_PATH)
+            router_prompt = self._read_file(os.path.join(self.base_path,AI_ROUTER_PROMPT_PATH))
             
             # 确定当前论文状态
             has_paper_loaded = self.current_paper_id is not None and self.current_paper_data is not None
@@ -438,7 +437,7 @@ class AIProfessorChat:
         messages = []
         
         # 读取角色提示词和解释提示词
-        explain_prompt = self._read_file(AI_EXPLAIN_PROMPT_PATH)
+        explain_prompt = self._read_file(os.path.join(self.base_path,AI_EXPLAIN_PROMPT_PATH))
         
         # 添加论文标题到系统提示(如果有)
         title = ""

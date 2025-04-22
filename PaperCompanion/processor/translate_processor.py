@@ -1,7 +1,8 @@
+import os
 import json
 import logging
 from pathlib import Path
-from config import LLMClient
+from ..config import LLMClient
 
 # 翻译提示词文件路径
 TITLE_TRANSLATE_PROMPT_PATH = "prompt/title_translate_prompt.txt"
@@ -10,10 +11,11 @@ CONTENT_TRANSLATE_PROMPT_PATH = "prompt/content_translate_prompt.txt"
 class TranslateProcessor:
     """翻译处理器, 使用LLM进行对论文json文件分段翻译"""
 
-    def __init__(self):
+    def __init__(self, base_dir: str = ""):
         """初始化翻译处理器"""
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.llm = LLMClient()
+        self.base_dir = base_dir
         
         # 保存已翻译的摘要，用于后续翻译的上下文
         self.translated_abstract = ""
@@ -207,7 +209,7 @@ class TranslateProcessor:
         use_abstract_reference: 是否使用abstract作为参考（图表和表格标题，或章节第一段）
         """
         # 根据文本类型选择对应的提示词文件路径
-        prompt_file = TITLE_TRANSLATE_PROMPT_PATH if text_type == "title" else CONTENT_TRANSLATE_PROMPT_PATH
+        prompt_file = os.path.join(self.base_dir,TITLE_TRANSLATE_PROMPT_PATH) if text_type == "title" else os.path.join(self.base_dir,CONTENT_TRANSLATE_PROMPT_PATH)
         
         # 读取系统提示词
         system_prompt = self._read_file(prompt_file)
