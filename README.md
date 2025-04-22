@@ -1,9 +1,57 @@
 # 该项目是 LinYi's Team 的 mad-professor 的一个分支，主要用于个人论文阅读
+
+
+## AI论文助手（AI Paper Assister）
 - 删除部分TTS功能减少项目复杂性，增加稳定性
 - 添加对MacOS的支持
 - 添加快捷键（例如对于Vim-like的键位绑定）
 - 添加更多管理阅读PDF的功能
 ![](assets/new_demo.png)
+
+## 安装指南
+
+**具体参考原项目的安装指南（在底部）**
+
+1. 下载模型
+   ```sh
+   python download_models.py
+   ```
+
+2. 编辑`config.py`设置API密钥和模型路径，数据默认存放在`~/.ai-paper-assister-data`目录下
+
+    ```py
+    ...
+
+    # API配置
+    API_BASE_URL = "YOUR_API_URL"
+    API_KEY = "YOUR_API_KEY"
+
+    # 嵌入模型配置
+    EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
+
+    # 数据存储路径
+    BASE_DIR = os.path.expanduser("~/.ai-paper-assister-data")
+
+    ...
+    ```
+
+3. 安装依赖 (按需生成需要venv环境)
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+4. 1. 运行通过命令行
+       ```sh
+       python -m PaperCompanion.main
+       ```
+
+   2. 或者打包为.whl文件 (Recommended after running with cli)
+       ```sh
+       python -m build
+       pipx install dist/PaperCompanion-0.1.0-py3-none-any.whl
+       ```
+
+
 
 ***
 

@@ -19,3 +19,4 @@ Pillow
 langdetect
 python-dotenv
 tiktoken
+magic-pdf
