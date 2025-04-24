@@ -10,6 +10,7 @@ class UploadWidget(QWidget):
     
     # 定义信号
     upload_file = pyqtSignal(str)  # 上传文件信号，传递文件路径
+    upload_zip = pyqtSignal(str)  # 上传ZIP文件信号，传递文件路径
     pause_processing = pyqtSignal()  # 暂停处理信号
     resume_processing = pyqtSignal()  # 继续处理信号
     
@@ -265,8 +266,8 @@ class UploadWidget(QWidget):
         """显示文件选择对话框"""
         options = QFileDialog.Option.ReadOnly
         file_paths, _ = QFileDialog.getOpenFileNames(
-            self, "选择要上传的论文PDF文件", "",
-            "PDF 文件 (*.pdf)", options=options
+            self, "选择要上传的论文PDF文件 / ZIP 文件（存档文件）", "",
+            "PDF 论文 (*.pdf);;ZIP 存档 (*.zip)", options=options
         )
         for file_path in file_paths:
             # 处理每个文件路径
@@ -277,11 +278,24 @@ class UploadWidget(QWidget):
             self.toggle_upload_details()
             
     def _process_file(self, file_path):
-        if file_path:
+        if not file_path or not os.path.isfile(file_path) or not os.access(file_path, os.R_OK):
+            return
+        if file_path.endswith(".zip"):
+            # TODO: 处理ZIP文件
+            self.upload_zip.emit(file_path)
+        elif file_path.endswith(".pdf"):
             # 发送上传文件信号
             self.upload_file.emit(file_path)
             # 更新界面 - 暂时显示为"处理中"状态，实际数量将由数据管理器更新
             self.update_upload_status(os.path.basename(file_path), "初始化", 0, "...")
+        else:
+            # 显示错误消息框
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
+            msg_box.setWindowTitle("错误")
+            msg_box.setText("请选择有效的PDF或ZIP文件。")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
                     
     def update_upload_status(self, file_name, stage, progress, pending_count):
         """更新上传状态"""

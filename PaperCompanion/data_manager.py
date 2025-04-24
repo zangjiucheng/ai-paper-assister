@@ -67,7 +67,7 @@ class DataManager(QObject):
         self.pipeline = Pipeline()
         self.pipeline.progress_updated.connect(self.on_pipeline_progress)
 
-    # ========== 论文下载 ==========
+    # ========== 论文存档与加载 ==========
 
     def _generate_papers_index(self, paper_ids):
         """生成论文索引"""
@@ -97,7 +97,7 @@ class DataManager(QObject):
             # 移动文件到下载目录
             shutil.move(output_path, os.path.join(self.download_dir, "output", paper_id))
         if os.path.exists(pdf_path):
-            shutil.move(pdf_path, os.path.join(self.download_dir, "data", paper_id))
+            shutil.move(pdf_path, os.path.join(self.download_dir, "data", paper_id + ".pdf"))
         
         self.message.emit(f"论文 {paper_id} 已移动到下载目录")
 
@@ -105,7 +105,7 @@ class DataManager(QObject):
         # Generate current date and hash
         current_date = datetime.now().strftime("%Y%m%d")
         hash_input = "".join(paper_ids).encode('utf-8')
-        hash_suffix = hashlib.md5(hash_input).hexdigest()[:4]
+        hash_suffix = hashlib.md5(hash_input).hexdigest()[:8]
         
         # Construct zip file name
         zip_file_name = f"achieved_papers_{current_date}_{hash_suffix}"
@@ -151,6 +151,114 @@ class DataManager(QObject):
     
         # Remove temporary download directory
         shutil.rmtree(self.download_dir, ignore_errors=True)
+
+    def _move_paper_file(self, paper_id, source_path, target_dir):
+        """移动论文文件到指定目录"""
+        if not os.path.exists(source_path):
+            self.loading_error.emit(f"源文件不存在: {source_path}")
+            return False
+        
+        # 构建源和目标路径
+        pdf_source_path = os.path.join(source_path, "data", f"{paper_id}.pdf")
+        pdf_target_path = os.path.join(target_dir, "data", f"{paper_id}.pdf")
+        output_source_path = os.path.join(source_path,"output", paper_id)
+        output_target_path = os.path.join(target_dir, "output", paper_id)
+
+        # 检查pdf和output文件是否存在
+        if not os.path.exists(pdf_source_path):
+            self.loading_error.emit(f"PDF文件不存在: {pdf_source_path}")
+            return False
+        if not os.path.exists(output_source_path):
+            self.loading_error.emit(f"output目录不存在: {output_source_path}")
+            return False
+
+        # 移动文件
+        try:
+            shutil.move(pdf_source_path, pdf_target_path)
+            shutil.move(output_source_path, output_target_path)
+            return True
+        except Exception as e:
+            self.loading_error.emit(f"移动文件失败: {str(e)}")
+            return False
+
+    def _move_paper_files(self, load_path):
+        load_data_dir = os.path.join(load_path, "data")
+        load_output_dir = os.path.join(load_path, "output")
+        load_json_index = os.path.join(load_output_dir, "papers_index.json")
+
+        # check if all files exist
+        if not os.path.exists(load_json_index):
+            self.loading_error.emit(f"索引文件不存在: {load_json_index}")
+            return
+        if not os.path.exists(load_data_dir) or not os.path.exists(load_output_dir):
+            self.loading_error.emit(f"数据目录或输出目录不存在: {load_data_dir} 或 {load_output_dir}")
+            return
+
+        load_paper_index = []
+
+        # Check index file
+        with open(load_json_index, 'r', encoding='utf-8') as f:
+            load_paper_index = json.load(f)
+
+        for paper in load_paper_index:
+            if any(existing_paper["id"] == paper["id"] for existing_paper in self.papers_index):
+                self.message.emit(f"论文 {paper['id']} 已存在，跳过")
+                continue
+            # Move files to data directory
+            _load = self._move_paper_file(paper["id"], load_path, self.base_dir)
+            if not _load:
+                self.loading_error.emit(f"移动文件失败: {paper['id']}")
+                continue
+            self.papers_index.append(paper)
+
+        # 写入索引文件
+        self._update_papers_index()
+
+
+    def load_achieved_papers(self, zip_path):
+        self.message.emit(f"正在加载压缩文件: {zip_path}")
+        file_name = os.path.basename(zip_path)
+        zip_code = file_name.split("_")[-1].split(".")[0]
+
+        # 解压缩文件到临时目录
+        temp_dir = os.path.join(self.base_dir, "temp")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+
+        try:
+            shutil.unpack_archive(zip_path, temp_dir, 'zip')
+            self.message.emit(f"压缩文件已解压到临时目录: {temp_dir}")
+        except Exception as e:
+            self.loading_error.emit(f"解压缩文件失败: {str(e)}")
+            return
+
+        hash_file_path = os.path.join(temp_dir, "hash")
+
+        if not os.path.exists(hash_file_path):
+            self.loading_error.emit(f"哈希文件不存在: {hash_file_path}")
+            return
+
+        with open(hash_file_path, 'r', encoding='utf-8') as hash_file:
+            hash_suffix = hash_file.read().strip()
+            if hash_suffix != zip_code:
+                self.loading_error.emit(f"哈希值不匹配: {hash_suffix} != {zip_code}")
+                return
+
+        previous_paper_count = len(self.papers_index)
+
+        # 移动文件到数据目录
+        self._move_paper_files(temp_dir)
+
+        # 清理临时目录
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        self.message.emit(f"临时目录已清理: {temp_dir}")
+
+        # 重新加载论文索引
+        self.load_papers_index()
+        
+        self.message.emit(f"加载完成，发现 {len(self.papers_index) - previous_paper_count} 篇新论文")
     
     # ========== 论文索引加载管理 ==========
     

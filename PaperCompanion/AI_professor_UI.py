@@ -455,6 +455,7 @@ class AIProfessorUI(QMainWindow):
         """连接数据管理器和UI组件的信号和槽"""
         # 连接侧边栏上传信号
         self.sidebar.upload_file.connect(self.data_manager.upload_file)
+        self.sidebar.upload_zip.connect(self.data_manager.load_achieved_papers)
         self.sidebar.pause_processing.connect(self.data_manager.pause_processing)
         self.sidebar.resume_processing.connect(self.data_manager.resume_processing)
 

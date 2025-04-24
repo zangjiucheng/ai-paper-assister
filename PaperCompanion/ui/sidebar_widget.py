@@ -11,6 +11,7 @@ class SidebarWidget(QWidget):
     # 定义信号
     paper_selected = pyqtSignal(str)  # 论文选择信号，传递论文ID
     upload_file = pyqtSignal(str)  # 上传文件信号，传递文件路径（转发）
+    upload_zip = pyqtSignal(str)  # 上传压缩文件信号，传递文件路径（转发）
     pause_processing = pyqtSignal()  # 暂停处理信号（转发）
     resume_processing = pyqtSignal()  # 继续处理信号（转发）
     toggle_active = pyqtSignal(str)  # 切换激活状态信号（转发）
@@ -175,6 +176,7 @@ class SidebarWidget(QWidget):
         
         # 连接上传文件窗口的信号
         self.upload_widget.upload_file.connect(self.on_upload_file)
+        self.upload_widget.upload_zip.connect(self.on_upload_zip)
         self.upload_widget.pause_processing.connect(self.on_pause_processing)
         self.upload_widget.resume_processing.connect(self.on_resume_processing)
         
@@ -320,6 +322,10 @@ class SidebarWidget(QWidget):
     def on_upload_file(self, file_path):
         """处理上传文件事件，转发上传文件信号"""
         self.upload_file.emit(file_path)
+
+    def on_upload_zip(self, file_path):
+        """处理上传压缩文件事件，转发上传压缩文件信号"""
+        self.upload_zip.emit(file_path)
         
     def on_pause_processing(self):
         """处理暂停处理事件，转发暂停处理信号"""
