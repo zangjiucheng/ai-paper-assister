@@ -173,3 +173,5 @@ output/
 *.DS_Store
 *.pkl
 *.faiss
+*.zip
+*hash

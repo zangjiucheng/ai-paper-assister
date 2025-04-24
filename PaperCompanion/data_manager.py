@@ -1,6 +1,8 @@
 import os
 import json
 import shutil
+from datetime import datetime
+import hashlib
 from PyQt6.QtCore import QObject, pyqtSignal
 from .pipeline import Pipeline
 from .threads import ProcessingThread
@@ -32,6 +34,8 @@ class DataManager(QObject):
         # 初始化数据状态
         self.papers_index = []
         self.current_paper = None
+        self.current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.download_dir = os.path.join(self.current_dir, "downloads")
         
         # 初始化处理队列和状态
         self._init_processing_queue()
@@ -62,6 +66,91 @@ class DataManager(QObject):
         """初始化处理管线"""
         self.pipeline = Pipeline()
         self.pipeline.progress_updated.connect(self.on_pipeline_progress)
+
+    # ========== 论文下载 ==========
+
+    def _generate_papers_index(self, paper_ids):
+        """生成论文索引"""
+        for paper_id in paper_ids:
+            paper_info = next((paper for paper in self.papers_index if paper["id"] == paper_id), None)
+            if paper_info:
+                paper_info["active"] = False  # 激活状态
+                self.papers_index.remove(paper_info) if paper_info else None
+                self.new_papers_index.append(paper_info)
+
+        if len(self.new_papers_index) != len(paper_ids):
+            self.message.emit(f"警告: 生成索引时发现 {len(paper_ids) - len(self.new_papers_index)} 篇论文索引缺失")
+        
+        # 保存下载索引到文件
+        index_path = os.path.join(self.download_dir, "output", "papers_index.json")
+        with open(index_path, 'w', encoding='utf-8') as f:
+            json.dump(self.new_papers_index, f, ensure_ascii=False, indent=4)
+        self.message.emit(f"论文索引已保存到: {index_path}")
+
+        # 更新本地索引文件
+        self._update_papers_index()
+
+    def _download_paper(self, paper_id):
+        output_path = os.path.join(self.output_dir, paper_id)
+        pdf_path = os.path.join(self.data_dir, f"{paper_id}.pdf")
+        if os.path.exists(output_path):
+            # 移动文件到下载目录
+            shutil.move(output_path, os.path.join(self.download_dir, "output", paper_id))
+        if os.path.exists(pdf_path):
+            shutil.move(pdf_path, os.path.join(self.download_dir, "data", paper_id))
+        
+        self.message.emit(f"论文 {paper_id} 已移动到下载目录")
+
+    def _create_archive(self, paper_ids):
+        # Generate current date and hash
+        current_date = datetime.now().strftime("%Y%m%d")
+        hash_input = "".join(paper_ids).encode('utf-8')
+        hash_suffix = hashlib.md5(hash_input).hexdigest()[:4]
+        
+        # Construct zip file name
+        zip_file_name = f"achieved_papers_{current_date}_{hash_suffix}"
+        zip_path = os.path.join(self.current_dir, zip_file_name)
+
+        # Save hash_suffix to a file
+        hash_file_path = os.path.join(self.download_dir, "hash")
+        with open(hash_file_path, 'w', encoding='utf-8') as hash_file:
+            hash_file.write(hash_suffix)
+
+        # Create zip file
+        shutil.make_archive(zip_path, 'zip', self.download_dir)
+
+        return zip_path
+
+    def download_papers(self, paper_ids):
+        self.message.emit(f"正在下载 {len(paper_ids)} 篇论文...") 
+
+        # 初始化
+        if os.path.exists(self.download_dir):
+            # 清空下载目录
+            shutil.rmtree(self.download_dir)
+        os.makedirs(self.download_dir)
+        os.makedirs(os.path.join(self.download_dir, "data"))
+        os.makedirs(os.path.join(self.download_dir, "output"))
+
+        self.new_papers_index = []
+
+        # 生成论文索引
+        self._generate_papers_index(paper_ids)
+
+        # 下载论文
+        for paper_id in paper_ids:
+            self._download_paper(paper_id)
+            
+        # 生成压缩文件
+        zip_path = self._create_archive(paper_ids)
+
+        if not os.path.exists(f"{zip_path}.zip"):
+            self.message.emit(f"压缩文件生成失败: {zip_path}.zip")
+
+        self.message.emit(f"压缩文件已生成: {zip_path}.zip")
+    
+        # Remove temporary download directory
+        shutil.rmtree(self.download_dir, ignore_errors=True)
     
     # ========== 论文索引加载管理 ==========
     
@@ -88,6 +177,11 @@ class DataManager(QObject):
                 self.message.emit(f"论文 {paper_id} 的激活状态已切换")
                 break
 
+        # 更新索引文件
+        self._update_papers_index()
+
+    def _update_papers_index(self):
+        """更新论文索引"""
         index_path = os.path.join(self.output_dir, "papers_index.json")
         with open(index_path, 'w', encoding='utf-8') as f:
             json.dump(self.papers_index, f, ensure_ascii=False, indent=4)

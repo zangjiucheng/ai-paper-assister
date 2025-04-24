@@ -470,6 +470,9 @@ class AIProfessorUI(QMainWindow):
         # 连接侧边栏的论文选择信号
         self.sidebar.paper_selected.connect(self.on_paper_selected)
 
+        # 连接侧边栏的PDF下载信号
+        self.sidebar.download_selected.connect(self.data_manager.download_papers)
+
         # Toggle Active
         self.sidebar.toggle_active.connect(self.data_manager.toggle_active)
 

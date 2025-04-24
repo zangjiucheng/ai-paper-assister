@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QListWidget, QListWidgetItem, QLabel, QFrame)
+                           QListWidget, QListWidgetItem, QLabel, QFrame, QMessageBox)
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtGui import QFont
@@ -14,12 +14,14 @@ class SidebarWidget(QWidget):
     pause_processing = pyqtSignal()  # 暂停处理信号（转发）
     resume_processing = pyqtSignal()  # 继续处理信号（转发）
     toggle_active = pyqtSignal(str)  # 切换激活状态信号（转发）
+    download_selected = pyqtSignal(list)  # 下载选中的论文信号，传递论文ID列表
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.collapsed_width = 50
         self.expanded_width = 250  # 减小侧边栏宽度
         self.is_expanded = True
+        self.selected_papers = []  # 存储选中的论文ID列表
         self.setMaximumWidth(self.expanded_width)  # 设置最大宽度
         
         self.init_ui()
@@ -52,8 +54,7 @@ class SidebarWidget(QWidget):
         
         # 固定位置的折叠按钮容器
         button_container = QWidget()
-        button_container.setFixedWidth(30)
-        button_layout = QVBoxLayout(button_container)
+        button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         
@@ -73,7 +74,27 @@ class SidebarWidget(QWidget):
             }
         """)
         self.toggle_button.clicked.connect(self.toggle_sidebar)
-        
+
+        self.download_button = QPushButton("Achieve Selected")
+        self.download_button.setObjectName("downloadButton")
+        self.download_button.setStyleSheet("""
+            #downloadButton {
+                background-color: #ffb300;
+                color: white;
+                border: 1px solid #ffa000;
+                border-radius: 8px;
+                padding: 5px 15px;
+                font-weight: bold;
+            }
+            #downloadButton:hover {
+                background-color: #ffa000;
+                border: 1px solid #ff6f00;
+            }
+        """)
+        self.download_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.download_button.clicked.connect(self.on_download_button_clicked)
+
+        button_layout.addWidget(self.download_button)
         button_layout.addWidget(self.toggle_button)
         
         header_layout.addWidget(self.title_label)
@@ -92,6 +113,7 @@ class SidebarWidget(QWidget):
         
         # 论文列表
         self.paper_list = QListWidget()
+        self.paper_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.paper_list.setObjectName("paperList")
         self.paper_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.paper_list.setTextElideMode(Qt.TextElideMode.ElideRight)
@@ -195,6 +217,7 @@ class SidebarWidget(QWidget):
         self.title_label.setVisible(self.is_expanded)
         self.paper_list.setVisible(self.is_expanded)
         self.upload_widget.setVisible(self.is_expanded)
+        self.download_button.setVisible(self.is_expanded)
         
         # 如果正在折叠，且详情面板可见，先隐藏详情面板
         if not self.is_expanded:
@@ -216,8 +239,70 @@ class SidebarWidget(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, paper)
             self.paper_list.addItem(item)
     
+    def on_download_button_clicked(self):
+        """弹出确认窗口，展示并确认下载选中的论文 ID 列表"""
+        if not self.selected_papers:
+            return
+
+        # 构造富文本消息
+        message = (
+            "<b>请确认是否下载以下论文：</b><br>"
+            + "<br>".join(f"• {paper_id['translated_title']}" for paper_id in self.selected_papers)
+        )
+
+        # 创建并配置对话框
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("确认下载")
+        dialog.setIcon(QMessageBox.Icon.Question)
+        dialog.setTextFormat(Qt.TextFormat.RichText)
+        dialog.setText(message)
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.button(QMessageBox.StandardButton.Yes).setText("下载")
+        dialog.button(QMessageBox.StandardButton.No).setText("取消")
+
+        # 美化样式
+        dialog.setStyleSheet("""
+            QMessageBox {
+                background-color: #f0f4f8;
+                font-family: 'Source Han Sans SC';
+                font-size: 12px;
+            }
+            QMessageBox QLabel {
+                color: #2c3e50;
+                margin: 8px;
+            }
+            QMessageBox QPushButton {
+                min-width: 72px;
+                margin: 4px;
+                padding: 6px 12px;
+                background-color: #1976d2;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #1565c0;
+            }
+            QMessageBox QPushButton:disabled {
+                background-color: #b0bec5;
+                color: #ffffff;
+            }
+        """)
+        
+        # Get ID list from selected papers
+        download_papers = [paper.get('id') for paper in self.selected_papers]
+
+        # 执行并处理用户响应
+        if dialog.exec() == QMessageBox.StandardButton.Yes:
+            # 在此处执行真正的下载逻辑
+            print(f"下载选中的论文：{', '.join(download_papers)}")
+            self.download_selected.emit(download_papers)
+
     def on_paper_item_clicked(self, item):
         """处理论文项点击事件，发出paper_selected信号"""
+        selected_items = self.paper_list.selectedItems()
+        self.selected_papers = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items]
         paper = item.data(Qt.ItemDataRole.UserRole)
         if paper:
             # 发送论文选择信号
