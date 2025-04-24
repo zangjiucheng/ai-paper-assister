@@ -281,7 +281,6 @@ class UploadWidget(QWidget):
         if not file_path or not os.path.isfile(file_path) or not os.access(file_path, os.R_OK):
             return
         if file_path.endswith(".zip"):
-            # TODO: 处理ZIP文件
             self.upload_zip.emit(file_path)
         elif file_path.endswith(".pdf"):
             # 发送上传文件信号

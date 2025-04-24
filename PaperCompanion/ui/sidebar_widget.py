@@ -298,6 +298,7 @@ class SidebarWidget(QWidget):
         # 执行并处理用户响应
         if dialog.exec() == QMessageBox.StandardButton.Yes:
             # 在此处执行真正的下载逻辑
+            self.selected_papers = []
             print(f"下载选中的论文：{', '.join(download_papers)}")
             self.download_selected.emit(download_papers)
 
