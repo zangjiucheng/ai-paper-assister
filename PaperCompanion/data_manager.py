@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 import shutil
 from datetime import datetime
 import hashlib
@@ -34,7 +35,11 @@ class DataManager(QObject):
         # 初始化数据状态
         self.papers_index = []
         self.current_paper = None
-        self.current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        self.current_dir = Path(
+            os.getenv("PAPERDL_WORKDIR")      # optional override
+            or Path.cwd()                     # directory user ran the command from
+        ).resolve()
         self.download_dir = os.path.join(self.current_dir, "downloads")
         
         # 初始化处理队列和状态
