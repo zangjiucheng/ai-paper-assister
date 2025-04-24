@@ -36,10 +36,7 @@ class DataManager(QObject):
         self.papers_index = []
         self.current_paper = None
 
-        self.current_dir = Path(
-            os.getenv("PAPERDL_WORKDIR")      # optional override
-            or Path.cwd()                     # directory user ran the command from
-        ).resolve()
+        self.current_dir = os.getcwd() if os.access(os.getcwd(), os.W_OK) else self.base_dir
         self.download_dir = os.path.join(self.current_dir, "downloads")
         
         # 初始化处理队列和状态
@@ -126,6 +123,24 @@ class DataManager(QObject):
 
         return zip_path
 
+    def _open_folder(self, folder_path):
+        import subprocess
+        import sys
+        """打开指定目录"""
+        try:
+            if os.name == 'nt':
+                # Windows系统
+                subprocess.Popen(['start', folder_path], shell=True)
+            elif sys.platform == 'darwin':
+                # macOS系统
+                subprocess.Popen(['open', folder_path])
+            else:
+                # Linux系统
+                subprocess.Popen(['xdg-open', folder_path])
+            self.message.emit(f"打开目录: {folder_path}")
+        except Exception as e:
+            self.loading_error.emit(f"打开目录失败: {str(e)}")
+
     def download_papers(self, paper_ids):
         self.message.emit(f"正在下载 {len(paper_ids)} 篇论文...") 
 
@@ -156,6 +171,9 @@ class DataManager(QObject):
     
         # Remove temporary download directory
         shutil.rmtree(self.download_dir, ignore_errors=True)
+
+        # 打开下载目录
+        self._open_folder(self.current_dir)
 
     def _move_paper_file(self, paper_id, source_path, target_dir):
         """移动论文文件到指定目录"""
