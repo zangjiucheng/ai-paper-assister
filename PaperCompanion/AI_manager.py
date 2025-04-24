@@ -185,6 +185,12 @@ class AIManager(QObject):
             
             # 创建RAG检索器并开始后台加载
             self.retriever = RagRetriever(base_path)
+
+            # 确保AI聊天模块使用相同的检索器
+            if hasattr(self, 'ai_chat') and self.ai_chat:
+                if self.ai_chat.retriever is not None:
+                    print("[INFO] 替换AI聊天模块中的旧检索器")
+                self.ai_chat.retriever = self.retriever
             
             # 连接加载完成信号以进行日志记录
             self.retriever.loading_complete.connect(self._on_retriever_loaded)

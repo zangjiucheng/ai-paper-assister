@@ -171,3 +171,5 @@ data/
 output/
 *.python-version
 *.DS_Store
+*.pkl
+*.faiss
