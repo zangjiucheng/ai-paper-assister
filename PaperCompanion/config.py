@@ -15,6 +15,9 @@ EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
 # 数据存储路径
 BASE_DIR = os.path.expanduser("~/.ai-paper-assister-data")
 
+# 在线模式
+ONLINE_MODE = False
+
 # 日志配置
 def setup_logging():
     """设置日志配置为控制台输出"""

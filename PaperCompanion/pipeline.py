@@ -13,6 +13,8 @@ from .processor.extra_info_processor import ExtraInfoProcessor
 from .processor.rag_processor import RagProcessor
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from .config import ONLINE_MODE
+
 # 配置日志
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,9 @@ class Pipeline(QObject):
         # 设置基础路径
         self.base_path = os.path.dirname(os.path.abspath(__file__))
 
+        # 确定是否为ONLINE MODE，跳过API调用部分
+        self.online_mode = ONLINE_MODE
+
         # 定义阶段标识符和对应的处理函数
         self.stage_identifiers = {
             'pdf2md': '',
@@ -57,6 +62,10 @@ class Pipeline(QObject):
             'md_restore': self._stage_md_restore,
             # 'extra_info': self._stage_extra_info,
             'rag': self._stage_rag
+        }
+
+        self.offline_skip_stages = {
+            "translate", "md_restore", "rag"
         }
         self.stages = stages or list(self.available_stages.keys())
         self.logger.debug("初始化处理阶段: %s", self.stages)
@@ -202,6 +211,10 @@ class Pipeline(QObject):
                     self.logger.warning(f"未知的处理阶段: {stage}")
                     continue
 
+                # If not online_mode then skip api translate feature stage
+                if not self.online_mode and stage in self.offline_skip_stages:
+                    continue
+
                 # 设置当前阶段
                 self._current_stage = stage
                 self.progress_updated.emit(self.get_current_stage())
@@ -265,7 +278,7 @@ class Pipeline(QObject):
                 final_paths['images'] = images_dir
                 
             # 如果有最终文件，更新索引
-            if final_paths:
+            if final_paths and self.online_mode:
                 self._update_global_index(base_output_dir, final_paths)
                 output_paths['final'] = final_paths
             

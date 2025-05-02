@@ -12,7 +12,7 @@ from .ui.chat_widget import ChatWidget
 from .ui.sidebar_widget import SidebarWidget
 from .data_manager import DataManager
 from .AI_manager import AIManager
-from .config import BASE_DIR
+from .config import BASE_DIR, ONLINE_MODE
 
 class AIProfessorUI(QMainWindow):
     """
@@ -28,6 +28,9 @@ class AIProfessorUI(QMainWindow):
         # 初始化数据管理器和AI管理器
         self.data_manager = DataManager(BASE_DIR)
         self.ai_manager = AIManager()
+
+        # 初始化ONLINE模式
+        self.online_mode = ONLINE_MODE
         
         # 设置两者互相引用
         self.ai_manager.set_data_manager(self.data_manager)
@@ -107,7 +110,7 @@ class AIProfessorUI(QMainWindow):
         app_icon.setPixmap(self.windowIcon().pixmap(16, 16))
         
         # 设置应用标题
-        app_title = QLabel("读论文助手")
+        app_title = QLabel("读论文助手") if self.online_mode else QLabel("读论文助手（离线版）")
         app_title.setStyleSheet("color: white; font-weight: bold;")
         
         # 创建窗口控制按钮
