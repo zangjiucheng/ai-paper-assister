@@ -5,6 +5,8 @@ from PyQt6.QtGui import QFont
 from datetime import datetime, time, timezone, date
 import os
 
+from ..config import ONLINE_MODE
+
 class UploadWidget(QWidget):
     """上传文件窗口类"""
     
@@ -18,6 +20,7 @@ class UploadWidget(QWidget):
         """初始化上传文件窗口"""
         super().__init__(parent)
         self.is_details_expanded = False
+        self.online_mode = ONLINE_MODE
         self.setObjectName("uploadWidget")
         
         self.init_ui()
@@ -324,8 +327,8 @@ class UploadWidget(QWidget):
         
     def on_resume_clicked(self):
         """继续处理按钮点击事件"""
-        if not self._is_discount_api_available():
-            # 显示一个警告对话框，询问用户是否要继续
+        if not self._is_discount_api_available() and self.online_mode:
+            # 如果折扣API不可用，显示警告对话框
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Warning)
             msg_box.setWindowTitle("折扣API不可用")
