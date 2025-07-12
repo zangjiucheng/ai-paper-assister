@@ -29,8 +29,6 @@
    ```
     python脚本会自动下载模型文件并配置好配置文件中的模型目录，配置文件可以在用户目录中找到，文件名为magic-pdf.json
 
-    windows的【用户目录】为 "C:\Users\用户名", linux【用户目录】为 "/home/用户名"
-
     修改【用户目录】配置文件magic-pdf.json中"device-mode"的值来启用MPS
     ```
     {
@@ -71,7 +69,7 @@
    2. 或者打包为.whl文件 (Recommended after running with cli)
        ```sh
        python -m build
-       pipx install dist/PaperCompanion-0.1.0-py3-none-any.whl
+       pipx install dist/PaperCompanion-<version>-py3-none-any.whl
        ```
 
 
