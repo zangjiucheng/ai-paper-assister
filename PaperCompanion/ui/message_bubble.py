@@ -113,11 +113,12 @@ class MessageBubble(QWidget):
         bubble.setObjectName(object_name)
         bubble.setStyleSheet(f"""
             #{object_name} {{
-                background-color: {bg_color};
-                border: 1px solid {border_color};
-                border-radius: {border_radius};
-                padding: 8px;
-                min-width: 200px;
+            background-color: {bg_color};
+            border: 1px solid {border_color};
+            border-radius: {border_radius};
+            padding: 8px;
+            min-width: 200px;
+            max-width: none;
             }}
         """)
         
