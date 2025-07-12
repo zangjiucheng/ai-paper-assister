@@ -1,6 +1,7 @@
 import os
 import markdown
 import json
+import re
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtCore import QUrl, pyqtSignal
@@ -616,41 +617,55 @@ class MarkdownView(QWebEngineView):
 
     def _render_parallel_markdown(self):
         """
-        并排渲染中英文Markdown内容
+        并排渲染中英文Markdown内容，并按章节对齐
         """
-        # 获取中英文Markdown内容
         zh_md = self.docs.get('zh', '')
         en_md = self.docs.get('en', '')
 
-        # 分别渲染为HTML
-        zh_html = markdown.markdown(
-            zh_md,
-            extensions=[
-                'tables', 'fenced_code', 'codehilite', 'extra',
-                'pymdownx.arithmatex'
-            ],
-            extension_configs={
-                'pymdownx.arithmatex': {'generic': True}
-            }
-        )
-        en_html = markdown.markdown(
-            en_md,
-            extensions=[
-                'tables', 'fenced_code', 'codehilite', 'extra',
-                'pymdownx.arithmatex'
-            ],
-            extension_configs={
-                'pymdownx.arithmatex': {'generic': True}
-            }
-        )
+        # 按章节拆分Markdown内容（假设章节以 h1/h2/h3 标题分隔）
+        def split_by_chapter(md_text):
+            # 匹配所有标题（h1/h2/h3），并分组内容
+            pattern = r'(#{1,3} .*)'
+            parts = re.split(pattern, md_text)
+            chapters = []
+            i = 1
+            while i < len(parts):
+                title = parts[i].strip()
+                content = parts[i+1].strip() if i+1 < len(parts) else ''
+                chapters.append({'title': title, 'content': content})
+                i += 2
+            return chapters
 
-        # 获取字体路径
+        zh_chapters = split_by_chapter(zh_md)
+        en_chapters = split_by_chapter(en_md)
+
+        # 对齐章节（按顺序，数量不一致时补空）
+        max_len = max(len(zh_chapters), len(en_chapters))
+        zh_chapters += [{'title': '', 'content': ''}] * (max_len - len(zh_chapters))
+        en_chapters += [{'title': '', 'content': ''}] * (max_len - len(en_chapters))
+
+        # 渲染每个章节为HTML
+        def render_chapter(chapter):
+            md = f"{chapter['title']}\n\n{chapter['content']}" if chapter['title'] else chapter['content']
+            return markdown.markdown(
+                md,
+                extensions=[
+                    'tables', 'fenced_code', 'codehilite', 'extra',
+                    'pymdownx.arithmatex'
+                ],
+                extension_configs={
+                    'pymdownx.arithmatex': {'generic': True}
+                }
+            )
+
+        zh_html_chapters = [render_chapter(ch) for ch in zh_chapters]
+        en_html_chapters = [render_chapter(ch) for ch in en_chapters]
+
+        # 获取字体和KaTeX资源
         font_path_regular = get_font_path("SourceHanSerifCN-Regular-1.otf")
         font_path_bold = get_font_path("SourceHanSerifCN-Bold-2.otf")
         css_with_paths = self.css.replace("FONT_PATH_REGULAR", font_path_regular.replace(os.sep, '/'))
         css_with_paths = css_with_paths.replace("FONT_PATH_BOLD", font_path_bold.replace(os.sep, '/'))
-
-        # KaTeX资源
         katex_css_path = get_asset_path("katex/katex.min.css")
         katex_js_path = get_asset_path("katex/katex.min.js")
         katex_autorender_path = get_asset_path("katex/contrib/auto-render.min.js")
@@ -658,7 +673,20 @@ class MarkdownView(QWebEngineView):
         katex_js_url = QUrl.fromLocalFile(katex_js_path).toString()
         katex_autorender_url = QUrl.fromLocalFile(katex_autorender_path).toString()
 
-        # 构建并排布局HTML
+        # 构建章节并排布局HTML
+        chapter_blocks = ""
+        for zh_html, en_html in zip(zh_html_chapters, en_html_chapters):
+            chapter_blocks += f"""
+            <div class="parallel-chapter" style="display:flex;gap:32px;margin-bottom:32px;">
+                <div class="parallel-panel zh" style="flex:1 1 0;">
+                    {zh_html}
+                </div>
+                <div class="parallel-panel en" style="flex:1 1 0;">
+                    {en_html}
+                </div>
+            </div>
+            """
+
         parallel_html = f"""
         <!DOCTYPE html>
         <html>
@@ -667,11 +695,12 @@ class MarkdownView(QWebEngineView):
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             {css_with_paths}
             <style>
-                .parallel-container {{
+                .parallel-chapter {{
                     display: flex;
                     flex-direction: row;
                     gap: 32px;
                     justify-content: space-between;
+                    margin-bottom: 32px;
                 }}
                 .parallel-panel {{
                     flex: 1 1 0;
@@ -689,7 +718,7 @@ class MarkdownView(QWebEngineView):
                     border-left: 2px solid #e8eaf6;
                 }}
                 @media (max-width: 900px) {{
-                    .parallel-container {{
+                    .parallel-chapter {{
                         flex-direction: column;
                         gap: 0;
                     }}
@@ -720,16 +749,7 @@ class MarkdownView(QWebEngineView):
             </script>
         </head>
         <body>
-            <div class="parallel-container">
-                <div class="parallel-panel zh">
-                    <h2 style="color:#1a237e;">中文</h2>
-                    {zh_html}
-                </div>
-                <div class="parallel-panel en">
-                    <h2 style="color:#283593;">English</h2>
-                    {en_html}
-                </div>
-            </div>
+            {chapter_blocks}
         </body>
         </html>
         """
@@ -749,7 +769,6 @@ class MarkdownView(QWebEngineView):
             katex_dir = os.path.dirname(os.path.dirname(get_asset_path("katex/katex.min.js")))
             base_url = QUrl.fromLocalFile(katex_dir + '/')
 
-        # 设置HTML内容及基本URL
         if base_url:
             self.setHtml(parallel_html, base_url)
         else:
