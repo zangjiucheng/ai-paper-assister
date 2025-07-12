@@ -4,6 +4,7 @@
 
 **TODO LIST:**
 - [x] 删除TTS功能减少项目复杂性，增加稳定性
+- [x] 添加并排阅读模式
 - [x] 添加对MacOS的支持(MPS backend)
 - [x] 添加快捷键（例如对于Vim-like的键位绑定）
 - [x] 添加更多管理阅读PDF的功能
@@ -11,9 +12,12 @@
 - [x] 固定使用Deepseek V3模型，增加API优惠时间提醒
 - [x] 提供更便捷的论文文档管理功能（通过标记方式实现）
 - [x] 添加归档功能，将已阅读的文章打包存储
+- [x] 更新`download_models.py` 源自Github仓库
 - [ ] 增加不同的处理管线
 - [ ] 添加聊天历史记录
-![](assets/new_demo.png)
+
+## 项目Demo
+![](PaperCompanion/assets/new_demo.png)
 
 ## 安装指南
 

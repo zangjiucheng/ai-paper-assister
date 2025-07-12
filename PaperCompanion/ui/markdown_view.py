@@ -1,6 +1,7 @@
 import os
 import markdown
 import json
+import re
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtCore import QUrl, pyqtSignal
@@ -454,6 +455,13 @@ class MarkdownView(QWebEngineView):
         if render:
             self.current_lang = lang
             self._render_markdown()
+        
+    def toggle_parallel_view(self):
+        """
+        切换并排显示中英文内容
+
+        """
+        self._render_parallel_markdown()
     
     def toggle_language(self):
         """
@@ -606,7 +614,166 @@ class MarkdownView(QWebEngineView):
             self.setHtml(full_html, base_url)
         else:
             self.setHtml(full_html)
-            
+
+    def _render_parallel_markdown(self):
+        """
+        并排渲染中英文Markdown内容，并按章节对齐
+        """
+        zh_md = self.docs.get('zh', '')
+        en_md = self.docs.get('en', '')
+
+        # 按章节拆分Markdown内容（假设章节以 h1/h2/h3 标题分隔）
+        def split_by_chapter(md_text):
+            # 匹配所有标题（h1/h2/h3），并分组内容
+            pattern = r'(#{1,3} .*)'
+            parts = re.split(pattern, md_text)
+            chapters = []
+            i = 1
+            while i < len(parts):
+                title = parts[i].strip()
+                content = parts[i+1].strip() if i+1 < len(parts) else ''
+                chapters.append({'title': title, 'content': content})
+                i += 2
+            return chapters
+
+        zh_chapters = split_by_chapter(zh_md)
+        en_chapters = split_by_chapter(en_md)
+
+        # 对齐章节（按顺序，数量不一致时补空）
+        max_len = max(len(zh_chapters), len(en_chapters))
+        zh_chapters += [{'title': '', 'content': ''}] * (max_len - len(zh_chapters))
+        en_chapters += [{'title': '', 'content': ''}] * (max_len - len(en_chapters))
+
+        # 渲染每个章节为HTML
+        def render_chapter(chapter):
+            md = f"{chapter['title']}\n\n{chapter['content']}" if chapter['title'] else chapter['content']
+            return markdown.markdown(
+                md,
+                extensions=[
+                    'tables', 'fenced_code', 'codehilite', 'extra',
+                    'pymdownx.arithmatex'
+                ],
+                extension_configs={
+                    'pymdownx.arithmatex': {'generic': True}
+                }
+            )
+
+        zh_html_chapters = [render_chapter(ch) for ch in zh_chapters]
+        en_html_chapters = [render_chapter(ch) for ch in en_chapters]
+
+        # 获取字体和KaTeX资源
+        font_path_regular = get_font_path("SourceHanSerifCN-Regular-1.otf")
+        font_path_bold = get_font_path("SourceHanSerifCN-Bold-2.otf")
+        css_with_paths = self.css.replace("FONT_PATH_REGULAR", font_path_regular.replace(os.sep, '/'))
+        css_with_paths = css_with_paths.replace("FONT_PATH_BOLD", font_path_bold.replace(os.sep, '/'))
+        katex_css_path = get_asset_path("katex/katex.min.css")
+        katex_js_path = get_asset_path("katex/katex.min.js")
+        katex_autorender_path = get_asset_path("katex/contrib/auto-render.min.js")
+        katex_css_url = QUrl.fromLocalFile(katex_css_path).toString()
+        katex_js_url = QUrl.fromLocalFile(katex_js_path).toString()
+        katex_autorender_url = QUrl.fromLocalFile(katex_autorender_path).toString()
+
+        # 构建章节并排布局HTML
+        chapter_blocks = ""
+        for zh_html, en_html in zip(zh_html_chapters, en_html_chapters):
+            chapter_blocks += f"""
+            <div class="parallel-chapter" style="display:flex;gap:32px;margin-bottom:32px;">
+                <div class="parallel-panel zh" style="flex:1 1 0;">
+                    {zh_html}
+                </div>
+                <div class="parallel-panel en" style="flex:1 1 0;">
+                    {en_html}
+                </div>
+            </div>
+            """
+
+        parallel_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            {css_with_paths}
+            <style>
+                .parallel-chapter {{
+                    display: flex;
+                    flex-direction: row;
+                    gap: 32px;
+                    justify-content: space-between;
+                    margin-bottom: 32px;
+                }}
+                .parallel-panel {{
+                    flex: 1 1 0;
+                    background: #fff;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                    padding: 0 20px;
+                    min-width: 0;
+                    overflow-x: auto;
+                }}
+                .parallel-panel.zh {{
+                    border-right: 2px solid #e8eaf6;
+                }}
+                .parallel-panel.en {{
+                    border-left: 2px solid #e8eaf6;
+                }}
+                @media (max-width: 900px) {{
+                    .parallel-chapter {{
+                        flex-direction: column;
+                        gap: 0;
+                    }}
+                    .parallel-panel {{
+                        border: none !important;
+                        margin-bottom: 24px;
+                    }}
+                }}
+            </style>
+            <link rel="stylesheet" href="{katex_css_url}">
+            <script defer src="{katex_js_url}"></script>
+            <script defer src="{katex_autorender_url}"></script>
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {{
+                    renderMathInElement(document.body, {{
+                        delimiters: [
+                            {{left: '$$', right: '$$', display: true}},
+                            {{left: '$', right: '$', display: false}},
+                            {{left: '\\\\(', right: '\\\\)', display: false}},
+                            {{left: '\\\\[', right: '\\\\]', display: true}}
+                        ],
+                        throwOnError: false,
+                        output: "html",
+                        strict: false,
+                        trust: true
+                    }});
+                }});
+            </script>
+        </head>
+        <body>
+            {chapter_blocks}
+        </body>
+        </html>
+        """
+
+        # 基本URL
+        base_url = None
+        if hasattr(self, 'data_manager') and self.data_manager and self.data_manager.current_paper:
+            paper = self.data_manager.current_paper
+            paper_path = paper.get('paths', {}).get('article_zh', '') or paper.get('paths', {}).get('article_en', '')
+            if paper_path:
+                paper_dir = os.path.dirname(os.path.join(
+                    self.data_manager.output_dir,
+                    paper_path
+                ))
+                base_url = QUrl.fromLocalFile(paper_dir + '/')
+        if not base_url:
+            katex_dir = os.path.dirname(os.path.dirname(get_asset_path("katex/katex.min.js")))
+            base_url = QUrl.fromLocalFile(katex_dir + '/')
+
+        if base_url:
+            self.setHtml(parallel_html, base_url)
+        else:
+            self.setHtml(parallel_html)
+
     def get_current_visible_text(self):
         """
         获取当前可见的文本内容

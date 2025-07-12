@@ -375,6 +375,26 @@ class AIProfessorUI(QMainWindow):
         doc_title = QLabel("论文阅读")
         doc_title.setFont(title_font)
         doc_title.setStyleSheet("color: white; font-weight: bold;")
+
+        self.parallel_button = QPushButton("并排显示中英文")
+        self.parallel_button.setObjectName("parallelButton")
+        self.parallel_button.setStyleSheet("""
+            #parallelButton {
+            background-color: rgba(33, 150, 243, 0.2);  /* blue */
+            color: white;
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            border-radius: 8px;
+            padding: 5px 15px;
+            font-weight: bold;
+            }
+            #parallelButton:hover {
+            background-color: rgba(33, 150, 243, 0.3);
+            }
+        """)
+        self.parallel_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.parallel_button.setShortcut("Ctrl+Shift+L")
+        self.parallel_button.setToolTip("并排显示中英文")
+        self.parallel_button.clicked.connect(self.toggle_parallel_view)
         
         # 语言切换按钮
         self.lang_button = QPushButton("切换为英文")
@@ -420,6 +440,7 @@ class AIProfessorUI(QMainWindow):
         combo_widget = QWidget()
         combo_layout = QHBoxLayout(combo_widget)
         combo_layout.setContentsMargins(0, 0, 0, 0)
+        combo_layout.addWidget(self.parallel_button)
         combo_layout.addWidget(self.lang_button)
         combo_layout.addWidget(self.pdf_button)
         toolbar_layout.addWidget(combo_widget, 0, Qt.AlignmentFlag.AlignRight)
@@ -606,7 +627,19 @@ class AIProfessorUI(QMainWindow):
         else:
             self.statusBar().showMessage("未加载论文或未指定PDF路径")
         pass
-
+    
+    def toggle_parallel_view(self):
+        """
+        切换并排显示中英文文档
+        
+        切换Markdown视图的并排显示模式
+        """
+        current_paper = self.data_manager.current_paper
+        if current_paper:
+            self.md_view.toggle_parallel_view()
+            self.statusBar().showMessage(f"已切换到 并排显示模式")
+     
+        
     def toggle_language(self):
         """
         切换文档语言
