@@ -23,8 +23,20 @@
    ```sh
    python download_models.py
    ```
+    python脚本会自动下载模型文件并配置好配置文件中的模型目录，配置文件可以在用户目录中找到，文件名为magic-pdf.json
 
-2. 编辑`config.py`设置API密钥和模型路径，数据默认存放在`~/.ai-paper-assister-data`目录下
+    windows的【用户目录】为 "C:\Users\用户名", linux【用户目录】为 "/home/用户名"
+
+    修改【用户目录】配置文件magic-pdf.json中"device-mode"的值来启用MPS
+    ```
+    {
+        "device-mode":"mps"
+    }
+    ```
+    语音输入的Whisper模型会在运行时自动下载
+
+
+2. 编辑`PaperCompanion/config.py`设置API密钥和模型路径，数据默认存放在`~/.ai-paper-assister-data`目录下
 
     ```py
     ...
