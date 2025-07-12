@@ -454,6 +454,13 @@ class MarkdownView(QWebEngineView):
         if render:
             self.current_lang = lang
             self._render_markdown()
+        
+    def toggle_parallel_view(self):
+        """
+        切换并排显示中英文内容
+
+        """
+        self._render_parallel_markdown()
     
     def toggle_language(self):
         """
@@ -606,7 +613,148 @@ class MarkdownView(QWebEngineView):
             self.setHtml(full_html, base_url)
         else:
             self.setHtml(full_html)
-            
+
+    def _render_parallel_markdown(self):
+        """
+        并排渲染中英文Markdown内容
+        """
+        # 获取中英文Markdown内容
+        zh_md = self.docs.get('zh', '')
+        en_md = self.docs.get('en', '')
+
+        # 分别渲染为HTML
+        zh_html = markdown.markdown(
+            zh_md,
+            extensions=[
+                'tables', 'fenced_code', 'codehilite', 'extra',
+                'pymdownx.arithmatex'
+            ],
+            extension_configs={
+                'pymdownx.arithmatex': {'generic': True}
+            }
+        )
+        en_html = markdown.markdown(
+            en_md,
+            extensions=[
+                'tables', 'fenced_code', 'codehilite', 'extra',
+                'pymdownx.arithmatex'
+            ],
+            extension_configs={
+                'pymdownx.arithmatex': {'generic': True}
+            }
+        )
+
+        # 获取字体路径
+        font_path_regular = get_font_path("SourceHanSerifCN-Regular-1.otf")
+        font_path_bold = get_font_path("SourceHanSerifCN-Bold-2.otf")
+        css_with_paths = self.css.replace("FONT_PATH_REGULAR", font_path_regular.replace(os.sep, '/'))
+        css_with_paths = css_with_paths.replace("FONT_PATH_BOLD", font_path_bold.replace(os.sep, '/'))
+
+        # KaTeX资源
+        katex_css_path = get_asset_path("katex/katex.min.css")
+        katex_js_path = get_asset_path("katex/katex.min.js")
+        katex_autorender_path = get_asset_path("katex/contrib/auto-render.min.js")
+        katex_css_url = QUrl.fromLocalFile(katex_css_path).toString()
+        katex_js_url = QUrl.fromLocalFile(katex_js_path).toString()
+        katex_autorender_url = QUrl.fromLocalFile(katex_autorender_path).toString()
+
+        # 构建并排布局HTML
+        parallel_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            {css_with_paths}
+            <style>
+                .parallel-container {{
+                    display: flex;
+                    flex-direction: row;
+                    gap: 32px;
+                    justify-content: space-between;
+                }}
+                .parallel-panel {{
+                    flex: 1 1 0;
+                    background: #fff;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                    padding: 0 20px;
+                    min-width: 0;
+                    overflow-x: auto;
+                }}
+                .parallel-panel.zh {{
+                    border-right: 2px solid #e8eaf6;
+                }}
+                .parallel-panel.en {{
+                    border-left: 2px solid #e8eaf6;
+                }}
+                @media (max-width: 900px) {{
+                    .parallel-container {{
+                        flex-direction: column;
+                        gap: 0;
+                    }}
+                    .parallel-panel {{
+                        border: none !important;
+                        margin-bottom: 24px;
+                    }}
+                }}
+            </style>
+            <link rel="stylesheet" href="{katex_css_url}">
+            <script defer src="{katex_js_url}"></script>
+            <script defer src="{katex_autorender_url}"></script>
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {{
+                    renderMathInElement(document.body, {{
+                        delimiters: [
+                            {{left: '$$', right: '$$', display: true}},
+                            {{left: '$', right: '$', display: false}},
+                            {{left: '\\\\(', right: '\\\\)', display: false}},
+                            {{left: '\\\\[', right: '\\\\]', display: true}}
+                        ],
+                        throwOnError: false,
+                        output: "html",
+                        strict: false,
+                        trust: true
+                    }});
+                }});
+            </script>
+        </head>
+        <body>
+            <div class="parallel-container">
+                <div class="parallel-panel zh">
+                    <h2 style="color:#1a237e;">中文</h2>
+                    {zh_html}
+                </div>
+                <div class="parallel-panel en">
+                    <h2 style="color:#283593;">English</h2>
+                    {en_html}
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        # 基本URL
+        base_url = None
+        if hasattr(self, 'data_manager') and self.data_manager and self.data_manager.current_paper:
+            paper = self.data_manager.current_paper
+            paper_path = paper.get('paths', {}).get('article_zh', '') or paper.get('paths', {}).get('article_en', '')
+            if paper_path:
+                paper_dir = os.path.dirname(os.path.join(
+                    self.data_manager.output_dir,
+                    paper_path
+                ))
+                base_url = QUrl.fromLocalFile(paper_dir + '/')
+        if not base_url:
+            katex_dir = os.path.dirname(os.path.dirname(get_asset_path("katex/katex.min.js")))
+            base_url = QUrl.fromLocalFile(katex_dir + '/')
+
+        # 设置HTML内容及基本URL
+        if base_url:
+            self.setHtml(parallel_html, base_url)
+        else:
+            self.setHtml(parallel_html)
+
     def get_current_visible_text(self):
         """
         获取当前可见的文本内容
