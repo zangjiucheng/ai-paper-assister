@@ -24,7 +24,7 @@
    python download_models.py
    ```
 
-2. 编辑`config.py`设置API密钥和模型路径，数据默认存放在`~/.ai-paper-assister-data`目录下
+2. 编辑`PaperCompanion/config.py`设置API密钥和模型路径，数据默认存放在`~/.ai-paper-assister-data`目录下
 
     ```py
     ...
