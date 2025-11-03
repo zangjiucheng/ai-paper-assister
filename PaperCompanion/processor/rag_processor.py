@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Tuple, Dict, List, Any
-from langchain.text_splitter import MarkdownHeaderTextSplitter
+from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from ..config import EmbeddingModel
