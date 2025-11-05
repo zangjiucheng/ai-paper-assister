@@ -53,7 +53,7 @@ if __name__ == '__main__':
     #     shutil.rmtree(user_paddleocr_dir)
     # shutil.copytree(paddleocr_model_dir, user_paddleocr_dir)
 
-    json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@magic_pdf-1.3.3-released/magic-pdf.template.json'
+    json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@magic_pdf-1.3.12-released/magic-pdf.template.json'
     config_file_name = 'magic-pdf.json'
     home_dir = os.path.expanduser('~')
     config_file = os.path.join(home_dir, config_file_name)
