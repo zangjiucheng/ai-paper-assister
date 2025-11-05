@@ -31,3 +31,4 @@ ftfy
 dill
 shapely
 pyclipper
+build
