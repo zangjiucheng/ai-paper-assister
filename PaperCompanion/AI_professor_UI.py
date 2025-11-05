@@ -710,6 +710,9 @@ class AIProfessorUI(QMainWindow):
         else:
             self.statusBar().showMessage("处理队列为空")
         
+        # 更新侧边栏队列提示
+        self.sidebar.update_queue_status(queue)
+        
         # 更新上传组件UI
         if pending_count == 0:
             # 队列空时更新UI为完成状态

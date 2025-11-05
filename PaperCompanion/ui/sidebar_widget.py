@@ -1,8 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                            QListWidget, QListWidgetItem, QLabel, QFrame, QMessageBox)
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
-from PyQt6.QtGui import QShortcut, QKeySequence
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QShortcut, QKeySequence, QFont, QColor, QBrush
 
 from .upload_widget import UploadWidget  # 导入上传文件窗口类
 
@@ -24,6 +23,9 @@ class SidebarWidget(QWidget):
         self.is_expanded = True
         self.selected_papers = []  # 存储选中的论文ID列表
         self.setMaximumWidth(self.expanded_width)  # 设置最大宽度
+        self.queue_status = {}
+        self.queue_entries = []
+        self.paper_items = {}
         
         self.init_ui()
         
@@ -171,6 +173,20 @@ class SidebarWidget(QWidget):
         
         list_layout.addWidget(self.paper_list)
         
+        self.queue_info_label = QLabel()
+        self.queue_info_label.setObjectName("queueInfoLabel")
+        self.queue_info_label.setWordWrap(True)
+        self.queue_info_label.setStyleSheet("""
+            #queueInfoLabel {
+                color: #546e7a;
+                font-size: 11px;
+                padding: 6px 8px;
+            }
+        """)
+        self.queue_info_label.setVisible(False)
+        self.queue_info_label.setTextFormat(Qt.TextFormat.RichText)
+        list_layout.addWidget(self.queue_info_label)
+        
         # 创建上传文件窗口
         self.upload_widget = UploadWidget()
         
@@ -218,6 +234,7 @@ class SidebarWidget(QWidget):
         # 显示/隐藏其他内容
         self.title_label.setVisible(self.is_expanded)
         self.paper_list.setVisible(self.is_expanded)
+        self.queue_info_label.setVisible(self.is_expanded and bool(self.queue_entries))
         self.upload_widget.setVisible(self.is_expanded)
         self.download_button.setVisible(self.is_expanded)
         
@@ -232,6 +249,7 @@ class SidebarWidget(QWidget):
     def load_papers(self, papers_index):
         """加载论文索引到列表"""
         self.paper_list.clear()
+        self.paper_items = {}
         for index, paper in enumerate(papers_index, start=1):
             # 优先使用translated_title作为显示文本
             title = paper.get('translated_title') or paper.get('title') or paper.get('id', '')
@@ -240,6 +258,12 @@ class SidebarWidget(QWidget):
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, paper)
             self.paper_list.addItem(item)
+            paper_id = paper.get('id')
+            if paper_id:
+                self.paper_items[paper_id] = item
+                status = self.queue_status.get(paper_id)
+                self._apply_item_style(item, status)
+        self._refresh_queue_display()
     
     def on_download_button_clicked(self):
         """弹出确认窗口，展示并确认下载选中的论文 ID 列表"""
@@ -353,3 +377,63 @@ class SidebarWidget(QWidget):
             pending_count: 待处理文件数量
         """
         self.upload_widget.update_upload_status(file_name, stage, progress, pending_count)
+    
+    def update_queue_status(self, queue):
+        """更新队列状态显示"""
+        self.queue_status = {item.get('id'): item.get('status', 'pending') for item in queue}
+        self.queue_entries = queue
+        # 更新已有论文项的样式
+        for paper_id, item in self.paper_items.items():
+            self._apply_item_style(item, self.queue_status.get(paper_id))
+        self._refresh_queue_display()
+    
+    def _apply_item_style(self, item, status):
+        """根据队列状态设置列表项颜色"""
+        default_fg = QBrush(QColor("#2c3e50"))
+        default_bg = QBrush(QColor("#f0f4f8"))
+        pending_bg = QBrush(QColor("#fff3e0"))
+        pending_fg = QBrush(QColor("#e65100"))
+        processing_bg = QBrush(QColor("#e8f0fe"))
+        processing_fg = QBrush(QColor("#1a237e"))
+        error_bg = QBrush(QColor("#ffebee"))
+        error_fg = QBrush(QColor("#c62828"))
+        
+        if status == "processing":
+            item.setBackground(processing_bg)
+            item.setForeground(processing_fg)
+        elif status in ("pending", "incomplete"):
+            item.setBackground(pending_bg)
+            item.setForeground(pending_fg)
+        elif status == "error":
+            item.setBackground(error_bg)
+            item.setForeground(error_fg)
+        else:
+            item.setBackground(default_bg)
+            item.setForeground(default_fg)
+    
+    def _refresh_queue_display(self):
+        """更新队列提示标签"""
+        if not self.queue_entries:
+            self.queue_info_label.clear()
+            self.queue_info_label.setVisible(False)
+            return
+        
+        status_styles = {
+            "processing": ("处理中", "#1a237e"),
+            "pending": ("等待处理", "#e65100"),
+            "incomplete": ("待补充", "#ef6c00"),
+            "error": ("处理错误", "#c62828"),
+        }
+        
+        lines = []
+        for entry in self.queue_entries:
+            paper_id = entry.get('id', '未知ID')
+            status_key = entry.get('status', 'pending')
+            status_text, color = status_styles.get(status_key, ("等待处理", "#546e7a"))
+            display_text = paper_id
+            if paper_id in self.paper_items:
+                display_text = self.paper_items[paper_id].text()
+            lines.append(f"<span style='color:{color}; font-weight:bold;'>{status_text}</span> - {display_text}")
+        
+        self.queue_info_label.setText("<br>".join(lines))
+        self.queue_info_label.setVisible(self.is_expanded)
