@@ -1,9 +1,14 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QLabel, QFrame, QProgressBar, QFileDialog, QMessageBox)
+                           QLabel, QFrame, QProgressBar, QFileDialog, QMessageBox,
+                           QInputDialog, QApplication)
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QFont
 from datetime import datetime, time, timezone, date
 import os
+import tempfile
+from urllib.parse import urlparse
+from urllib.request import urlopen, Request
+from urllib.error import URLError, HTTPError
 
 from ..config import ONLINE_MODE
 
@@ -89,6 +94,25 @@ class UploadWidget(QWidget):
         """)
         self.upload_button.clicked.connect(self.show_file_dialog)
         
+        # 通过arXiv链接上传按钮
+        self.arxiv_button = QPushButton("🔗")
+        self.arxiv_button.setToolTip("通过 arXiv 链接下载并上传")
+        self.arxiv_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.arxiv_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                color: white;
+                font-size: 16px;
+                background-color: transparent;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+            }
+        """)
+        self.arxiv_button.clicked.connect(self.show_arxiv_dialog)
+        
         # 展开按钮
         self.expand_upload_button = QPushButton("▲")
         self.expand_upload_button.setToolTip("显示上传详情")
@@ -111,6 +135,7 @@ class UploadWidget(QWidget):
         upload_button_layout.addWidget(self.upload_title)
         upload_button_layout.addStretch(1)
         upload_button_layout.addWidget(self.upload_button)
+        upload_button_layout.addWidget(self.arxiv_button)
         upload_button_layout.addWidget(self.expand_upload_button)
         
         return upload_button_frame
@@ -275,8 +300,41 @@ class UploadWidget(QWidget):
         for file_path in file_paths:
             # 处理每个文件路径
             self._process_file(file_path)
-
-        # 打开上传详情面板
+        
+        if file_paths and not self.is_details_expanded:
+            # 打开上传详情面板
+            self.toggle_upload_details()
+            
+    def show_arxiv_dialog(self):
+        """显示 arXiv 链接输入对话框并下载 PDF"""
+        url, ok = QInputDialog.getText(
+            self,
+            "通过 arXiv 链接上传",
+            "请输入 arXiv 链接（例如：https://arxiv.org/abs/1234.56789）："
+        )
+        if not ok:
+            return
+        
+        url = url.strip()
+        if not url:
+            return
+        
+        file_path = None
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            file_path = self._download_arxiv_pdf(url)
+        except ValueError as err:
+            self._show_message("错误", str(err))
+        except Exception as err:
+            self._show_message("错误", f"下载失败：{str(err)}")
+        finally:
+            QApplication.restoreOverrideCursor()
+        
+        if not file_path:
+            return
+        
+        self._process_file(file_path)
+        
         if not self.is_details_expanded:
             self.toggle_upload_details()
             
@@ -291,13 +349,7 @@ class UploadWidget(QWidget):
             # 更新界面 - 暂时显示为"处理中"状态，实际数量将由数据管理器更新
             self.update_upload_status(os.path.basename(file_path), "初始化", 0, "...")
         else:
-            # 显示错误消息框
-            msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Icon.Critical)
-            msg_box.setWindowTitle("错误")
-            msg_box.setText("请选择有效的PDF或ZIP文件。")
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-            msg_box.exec()
+            self._show_message("错误", "请选择有效的PDF或ZIP文件。")
                     
     def update_upload_status(self, file_name, stage, progress, pending_count):
         """更新上传状态"""
@@ -372,6 +424,75 @@ class UploadWidget(QWidget):
         self.pause_button.setEnabled(True)
         # 发送继续信号
         self.resume_processing.emit()
+    
+    def _download_arxiv_pdf(self, url):
+        """下载 arXiv PDF 并返回本地临时文件路径"""
+        paper_id = self._extract_arxiv_id(url)
+        pdf_url = f"https://arxiv.org/pdf/{paper_id}.pdf"
+        safe_id = paper_id.replace('/', '_')
+        
+        temp_path = self._reserve_temp_pdf_path(safe_id)
+        request = Request(pdf_url, headers={"User-Agent": "PaperCompanion/1.0"})
+        try:
+            with urlopen(request, timeout=30) as response:
+                status = getattr(response, "status", None)
+                if status and status != 200:
+                    raise ValueError(f"无法从 arXiv 下载 PDF（HTTP {status}）。")
+                data = response.read()
+        except HTTPError as err:
+            raise ValueError(f"下载失败（HTTP {err.code}）。") from err
+        except URLError as err:
+            raise ValueError("无法连接到 arXiv，请检查网络连接。") from err
+        except TimeoutError as err:
+            raise ValueError("下载超时，请稍后重试。") from err
+        
+        with open(temp_path, "wb") as pdf_file:
+            pdf_file.write(data)
+        
+        return temp_path
+    
+    def _extract_arxiv_id(self, url):
+        """从 arXiv 链接中提取论文编号"""
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("请输入有效的 https://arxiv.org 链接。")
+        if parsed.netloc.lower() != "arxiv.org":
+            raise ValueError("仅支持来自 https://arxiv.org/ 的链接。")
+        
+        path = parsed.path.rstrip('/')
+        if path.startswith("/abs/"):
+            paper_id = path[len("/abs/"):]
+        elif path.startswith("/pdf/"):
+            paper_id = path[len("/pdf/"):]
+            if paper_id.endswith(".pdf"):
+                paper_id = paper_id[:-4]
+        else:
+            raise ValueError("无法识别该 arXiv 链接，请使用 /abs/ 或 /pdf/ 链接。")
+        
+        paper_id = paper_id.split("?")[0]
+        if not paper_id:
+            raise ValueError("请提供完整的 arXiv 论文编号。")
+        return paper_id
+    
+    def _reserve_temp_pdf_path(self, safe_id):
+        """在临时目录中预留唯一的 PDF 文件路径"""
+        temp_dir = tempfile.gettempdir()
+        base_name = f"{safe_id}.pdf"
+        candidate = os.path.join(temp_dir, base_name)
+        counter = 1
+        while os.path.exists(candidate):
+            candidate = os.path.join(temp_dir, f"{safe_id}_{counter}.pdf")
+            counter += 1
+        return candidate
+    
+    def _show_message(self, title, text, icon=QMessageBox.Icon.Critical):
+        """显示统一的消息框"""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(icon)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(text)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
     
     def _is_discount_api_available(self):
         """检查当前折扣API是否可用"""
