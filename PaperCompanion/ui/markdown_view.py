@@ -376,10 +376,10 @@ class MarkdownView(QWebEngineView):
                 // 根据元素类型添加适当的格式
                 if (isBlockFormula) {
                     // 块级公式：前后加换行，去掉空格
-                    fullVisibleText += "\\n" + text.replace(/\s+/g, '') + "\\n";
+                    fullVisibleText += "\\n" + text.replace(/\\s+/g, '') + "\\n";
                 } else if (isInlineFormula) {
                     // 行内公式：去掉空格
-                    fullVisibleText += text.replace(/\s+/g, '');
+                    fullVisibleText += text.replace(/\\s+/g, '');
                 } else if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
                     // 为标题添加换行
                     fullVisibleText += "\\n" + text + "\\n";
@@ -912,7 +912,7 @@ class MarkdownView(QWebEngineView):
                 // 标准化文本：只保留中文、英文字母和数字
                 function normalizeText(text) {{
                     // 保留中文字符(\u4e00-\u9fff)、英文字母和数字
-                    return text.toLowerCase().replace(/[^\u4e00-\u9fff\w\d]/g, '');
+                    return text.toLowerCase().replace(/[^\\u4e00-\\u9fff\\w\\d]/g, '');
                 }}
                 
                 // 改进的文本匹配函数 - 检查包含关系

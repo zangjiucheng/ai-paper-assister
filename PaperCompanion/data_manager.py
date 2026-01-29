@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import shutil
 from datetime import datetime
+import tempfile
 import hashlib
 from PyQt6.QtCore import QObject, pyqtSignal
 from .pipeline import Pipeline
@@ -37,7 +38,9 @@ class DataManager(QObject):
         self.current_paper = None
 
         self.current_dir = os.getcwd() if os.access(os.getcwd(), os.W_OK) else self.base_dir
-        self.download_dir = os.path.join(self.current_dir, "downloads")
+        # Use a dedicated, app-scoped download root to avoid deleting user folders.
+        self.download_root = os.path.join(self.current_dir, "papercompanion_downloads")
+        self.download_dir = None
         
         # 初始化处理队列和状态
         self._init_processing_queue()
@@ -144,11 +147,9 @@ class DataManager(QObject):
     def download_papers(self, paper_ids):
         self.message.emit(f"正在下载 {len(paper_ids)} 篇论文...") 
 
-        # 初始化
-        if os.path.exists(self.download_dir):
-            # 清空下载目录
-            shutil.rmtree(self.download_dir)
-        os.makedirs(self.download_dir)
+        # 初始化下载临时目录（避免误删用户目录）
+        os.makedirs(self.download_root, exist_ok=True)
+        self.download_dir = tempfile.mkdtemp(prefix="papercompanion_download_", dir=self.download_root)
         os.makedirs(os.path.join(self.download_dir, "data"))
         os.makedirs(os.path.join(self.download_dir, "output"))
 
