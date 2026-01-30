@@ -36,6 +36,7 @@ class DataManager(QObject):
         # 初始化数据状态
         self.papers_index = []
         self.current_paper = None
+        self.last_paper_id = None
 
         self.current_dir = os.getcwd() if os.access(os.getcwd(), os.W_OK) else self.base_dir
         # Use a dedicated, app-scoped download root to avoid deleting user folders.
@@ -47,6 +48,9 @@ class DataManager(QObject):
         
         # 初始化处理管线
         self._init_pipeline()
+
+        # 加载上次阅读的论文
+        self.last_paper_id = self._load_last_paper_id()
     
     # ========== 初始化相关方法 ==========
     
@@ -71,6 +75,30 @@ class DataManager(QObject):
         """初始化处理管线"""
         self.pipeline = Pipeline()
         self.pipeline.progress_updated.connect(self.on_pipeline_progress)
+
+    def _last_paper_path(self):
+        return os.path.join(self.data_dir, "last_paper.json")
+
+    def _load_last_paper_id(self):
+        path = self._last_paper_path()
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("paper_id")
+        except Exception:
+            return None
+
+    def _save_last_paper_id(self, paper_id):
+        try:
+            with open(self._last_paper_path(), "w", encoding="utf-8") as f:
+                json.dump({"paper_id": paper_id}, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def get_last_paper_id(self):
+        return self.last_paper_id
 
     # ========== 论文存档与加载 ==========
 
@@ -343,6 +371,9 @@ class DataManager(QObject):
             return None, "", ""
         
         self.current_paper = paper
+        if paper_id:
+            self.last_paper_id = paper_id
+            self._save_last_paper_id(paper_id)
         self.message.emit(f"尝试加载论文: {paper.get('translated_title', '')} ({paper_id})")
         
         # 获取路径信息
@@ -1004,6 +1035,9 @@ class DataManager(QObject):
         if queue_ids:
             self.papers_index = [p for p in self.papers_index if p.get("id") not in set(queue_ids)]
             self._update_papers_index()
+            if self.last_paper_id in set(queue_ids):
+                self.last_paper_id = None
+                self._save_last_paper_id(None)
 
         # 清空队列
         self.processing_queue = []

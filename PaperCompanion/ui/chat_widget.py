@@ -1,8 +1,10 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QTextEdit, QScrollArea, QLabel, QFrame)
+                           QTextEdit, QScrollArea, QLabel, QFrame, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
+import os
+import json
 
 # 导入自定义组件和工具类
 from ..paths import get_asset_path
@@ -29,6 +31,8 @@ class ChatWidget(QWidget):
         self.paper_controller = None  # 论文控制器引用
         self.loading_bubble = None  # 加载动画引用
         self.is_voice_active = False  # 语音功能是否激活
+        self.history = []
+        self._stream_buffer = ""
 
         self.collapsed_width = 100
         self.expanded_width = 450  # 减小侧边栏宽度
@@ -37,6 +41,7 @@ class ChatWidget(QWidget):
         
         # 初始化UI
         self.init_ui()
+        self._load_history()
         
         # 界面显示后立即初始化语音功能
         # QTimer.singleShot(500, self.init_voice_recognition)
@@ -129,7 +134,26 @@ class ChatWidget(QWidget):
         self.toggle_button.clicked.connect(self.toggle_ai_chat)
         self.toggle_button.setShortcut("Ctrl+Shift+C")  # 设置快捷键
 
+        self.clear_button = QPushButton("清空")
+        self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clear_button.setStyleSheet("""
+            QPushButton {
+                border: 1px solid #8e3b3b;
+                color: #ffffff;
+                font-weight: bold;
+                background-color: #8b1e1e;
+                border-radius: 6px;
+                padding: 2px 8px;
+            }
+            QPushButton:hover {
+                background-color: #7a1a1a;
+            }
+        """)
+        self.clear_button.clicked.connect(self.clear_history)
+
         title_layout.addWidget(title_label, 0, Qt.AlignmentFlag.AlignLeft)
+        title_layout.addWidget(self.clear_button, 0, Qt.AlignmentFlag.AlignLeft)
+        title_layout.addStretch(1)
         title_layout.addWidget(self.toggle_button, 0, Qt.AlignmentFlag.AlignRight)
         
         return title_bar
@@ -355,6 +379,7 @@ class ChatWidget(QWidget):
             # 添加用户消息气泡
             user_bubble = MessageBubble(message, is_user=True)
             self.messages_layout.addWidget(user_bubble)
+            self._append_history("user", message)
             
             # 清空输入框
             self.message_input.clear()
@@ -408,6 +433,7 @@ class ChatWidget(QWidget):
         # 添加AI消息气泡
         ai_bubble = MessageBubble(message, is_user=False)
         self.messages_layout.addWidget(ai_bubble)
+        self._append_history("assistant", message)
         
         # 滚动到底部
         QTimer.singleShot(100, self.scroll_to_bottom)
@@ -429,6 +455,8 @@ class ChatWidget(QWidget):
         # 显示单句回复
         ai_bubble = MessageBubble(sentence, is_user=False)
         self.messages_layout.addWidget(ai_bubble)
+        # 流式响应不逐句写入历史，统一在结束时合并保存
+        self._stream_buffer += sentence
         
         # 滚动到底部
         QTimer.singleShot(100, self.scroll_to_bottom)
@@ -451,6 +479,11 @@ class ChatWidget(QWidget):
             if not self.ai_controller.ai_response_thread.use_streaming:
                 self.receive_ai_message(response)
             # 否则不显示，等TTS播放时显示
+        # 流式响应结束后，合并保存历史
+        if self.ai_controller and self.ai_controller.ai_response_thread.use_streaming:
+            if self._stream_buffer.strip():
+                self._append_history("assistant", self._stream_buffer)
+            self._stream_buffer = ""
     
     def on_ai_generation_cancelled(self):
         """处理AI生成被取消的情况"""
@@ -463,12 +496,82 @@ class ChatWidget(QWidget):
         
         # 清除当前请求ID，因为请求已被取消
         self.active_request_id = None
+        # 清理流式缓存
+        self._stream_buffer = ""
     
     def scroll_to_bottom(self):
         """滚动到对话底部"""
         self.scroll_area.verticalScrollBar().setValue(
             self.scroll_area.verticalScrollBar().maximum()
         )
+
+    def _get_history_path(self):
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+        data_dir = os.path.abspath(data_dir)
+        os.makedirs(data_dir, exist_ok=True)
+        return os.path.join(data_dir, "chat_history.json")
+
+    def _append_history(self, role, content):
+        self.history.append({"role": role, "content": content})
+        self._save_history()
+
+    def _save_history(self):
+        try:
+            with open(self._get_history_path(), "w", encoding="utf-8") as f:
+                json.dump(self.history, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def _load_history(self):
+        path = self._get_history_path()
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                self.history = json.load(f)
+        except Exception:
+            self.history = []
+            return
+
+        for item in self.history:
+            role = item.get("role")
+            content = item.get("content", "")
+            if not content:
+                continue
+            bubble = MessageBubble(content, is_user=(role == "user"))
+            self.messages_layout.addWidget(bubble)
+        QTimer.singleShot(0, self.scroll_to_bottom)
+
+    def clear_history(self):
+        if not self.history and self.messages_layout.count() == 0:
+            return
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("清空聊天记录")
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setText("将清空所有聊天记录，是否继续？")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.button(QMessageBox.StandardButton.Yes).setText("清空")
+        dialog.button(QMessageBox.StandardButton.No).setText("取消")
+        if dialog.exec() != QMessageBox.StandardButton.Yes:
+            return
+
+        # 清理UI中的消息气泡
+        while self.messages_layout.count():
+            item = self.messages_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        # 停止loading bubble
+        if self.loading_bubble:
+            self.loading_bubble.stop_animation()
+            self.loading_bubble.deleteLater()
+            self.loading_bubble = None
+
+        # 清理历史并保存
+        self.history = []
+        self._save_history()
     
     
     def eventFilter(self, obj, event):

@@ -419,6 +419,15 @@ class SidebarWidget(QWidget):
             self.paper_list.setCurrentItem(item)
             self.on_paper_item_clicked(item)
 
+    def select_paper_by_id(self, paper_id):
+        """按论文ID选择并触发加载"""
+        item = self.paper_items.get(paper_id)
+        if not item:
+            return False
+        self.paper_list.setCurrentItem(item)
+        self.on_paper_item_clicked(item)
+        return True
+
     def update_upload_status(self, file_name, stage, progress, pending_count):
         """更新上传状态
         

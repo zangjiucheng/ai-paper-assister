@@ -520,6 +520,10 @@ class AIProfessorUI(QMainWindow):
             papers: 论文数据列表
         """
         self.sidebar.load_papers(papers)
+        if self.data_manager.current_paper is None:
+            last_id = self.data_manager.get_last_paper_id()
+            if last_id and any(p.get("id") == last_id for p in papers):
+                self.sidebar.select_paper_by_id(last_id)
         
     def on_paper_selected(self, paper_id):
         """
