@@ -482,6 +482,8 @@ class AIProfessorUI(QMainWindow):
         self.sidebar.upload_zip.connect(self.data_manager.load_achieved_papers)
         self.sidebar.pause_processing.connect(self.data_manager.pause_processing)
         self.sidebar.resume_processing.connect(self.data_manager.resume_processing)
+        self.sidebar.reorder_queue.connect(self.data_manager.reorder_processing_queue)
+        self.sidebar.clear_queue_and_delete.connect(self.data_manager.clear_queue_and_delete_files)
 
         # 连接数据管理器的论文数据信号
         self.sidebar.resume_processing.connect(self.data_manager.resume_processing)

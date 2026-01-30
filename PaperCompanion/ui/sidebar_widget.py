@@ -15,6 +15,8 @@ class SidebarWidget(QWidget):
     resume_processing = pyqtSignal()  # 继续处理信号（转发）
     toggle_active = pyqtSignal(str)  # 切换激活状态信号（转发）
     download_selected = pyqtSignal(list)  # 下载选中的论文信号，传递论文ID列表
+    reorder_queue = pyqtSignal(str, str)  # 调整处理队列顺序信号 (paper_id, direction)
+    clear_queue_and_delete = pyqtSignal()  # 清空队列并删除文件信号
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -186,6 +188,55 @@ class SidebarWidget(QWidget):
         self.queue_info_label.setVisible(False)
         self.queue_info_label.setTextFormat(Qt.TextFormat.RichText)
         list_layout.addWidget(self.queue_info_label)
+
+        # 队列顺序调整按钮
+        reorder_frame = QFrame()
+        reorder_layout = QHBoxLayout(reorder_frame)
+        reorder_layout.setContentsMargins(8, 4, 8, 8)
+        reorder_layout.setSpacing(6)
+
+        reorder_label = QLabel("调整顺序:")
+        reorder_label.setStyleSheet("color: #546e7a; font-size: 11px;")
+
+        self.queue_move_up_btn = QPushButton("↑")
+        self.queue_move_up_btn.setToolTip("上移队列顺序")
+        self.queue_move_down_btn = QPushButton("↓")
+        self.queue_move_down_btn.setToolTip("下移队列顺序")
+        self.queue_move_top_btn = QPushButton("置顶")
+        self.queue_move_top_btn.setToolTip("优先处理该论文")
+
+        for btn in (self.queue_move_up_btn, self.queue_move_down_btn, self.queue_move_top_btn):
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #e3f2fd;
+                    color: #1a237e;
+                    border: 1px solid #c5cae9;
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #bbdefb;
+                }
+                QPushButton:disabled {
+                    background-color: #e0e0e0;
+                    color: #9e9e9e;
+                    border-color: #e0e0e0;
+                }
+            """)
+
+        self.queue_move_up_btn.clicked.connect(lambda: self._reorder_selected_item("up"))
+        self.queue_move_down_btn.clicked.connect(lambda: self._reorder_selected_item("down"))
+        self.queue_move_top_btn.clicked.connect(lambda: self._reorder_selected_item("top"))
+
+        reorder_layout.addWidget(reorder_label)
+        reorder_layout.addStretch(1)
+        reorder_layout.addWidget(self.queue_move_up_btn)
+        reorder_layout.addWidget(self.queue_move_down_btn)
+        reorder_layout.addWidget(self.queue_move_top_btn)
+
+        list_layout.addWidget(reorder_frame)
         
         # 创建上传文件窗口
         self.upload_widget = UploadWidget()
@@ -195,6 +246,7 @@ class SidebarWidget(QWidget):
         self.upload_widget.upload_zip.connect(self.on_upload_zip)
         self.upload_widget.pause_processing.connect(self.on_pause_processing)
         self.upload_widget.resume_processing.connect(self.on_resume_processing)
+        self.upload_widget.clear_queue_and_delete.connect(self.on_clear_queue_clicked)
         
         # 添加到布局
         layout.addWidget(header_frame)
@@ -382,6 +434,7 @@ class SidebarWidget(QWidget):
         """更新队列状态显示"""
         self.queue_status = {item.get('id'): item.get('status', 'pending') for item in queue}
         self.queue_entries = queue
+        self._set_reorder_controls_enabled(bool(queue))
         # 更新已有论文项的样式
         for paper_id, item in self.paper_items.items():
             self._apply_item_style(item, self.queue_status.get(paper_id))
@@ -437,3 +490,44 @@ class SidebarWidget(QWidget):
         
         self.queue_info_label.setText("<br>".join(lines))
         self.queue_info_label.setVisible(self.is_expanded)
+
+    def _set_reorder_controls_enabled(self, enabled):
+        self.queue_move_up_btn.setEnabled(enabled)
+        self.queue_move_down_btn.setEnabled(enabled)
+        self.queue_move_top_btn.setEnabled(enabled)
+
+    def _reorder_selected_item(self, direction):
+        selected_items = self.paper_list.selectedItems()
+        if not selected_items:
+            QMessageBox.information(self, "提示", "请选择一个待处理的论文以调整顺序。")
+            return
+
+        paper = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        if not paper:
+            return
+
+        paper_id = paper.get('id')
+        if not paper_id:
+            return
+
+        if paper_id not in {entry.get('id') for entry in self.queue_entries}:
+            QMessageBox.information(self, "提示", "该论文不在待处理队列中。")
+            return
+
+        self.reorder_queue.emit(paper_id, direction)
+
+    def on_clear_queue_clicked(self):
+        if not self.queue_entries:
+            QMessageBox.information(self, "提示", "当前处理队列为空。")
+            return
+
+        count = len(self.queue_entries)
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("确认清空队列")
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setText(f"将删除队列中的 {count} 个PDF及对应输出。该操作不可恢复，是否继续？")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.button(QMessageBox.StandardButton.Yes).setText("删除")
+        dialog.button(QMessageBox.StandardButton.No).setText("取消")
+        if dialog.exec() == QMessageBox.StandardButton.Yes:
+            self.clear_queue_and_delete.emit()

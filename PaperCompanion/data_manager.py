@@ -942,20 +942,10 @@ class DataManager(QObject):
         """暂停处理队列"""
         self.is_paused = True
         self.message.emit("处理队列已暂停")
-        
-        # 立即停止当前正在运行的线程
+
+        # 不强制终止当前任务，避免UI卡死；当前任务完成后会自动暂停
         if self.current_thread and self.current_thread.isRunning():
-            self.current_thread.stop()  # 立即终止线程
-            self.is_processing = False  # 重置处理状态
-            
-            # 如果队列不为空，将当前任务重置为待处理状态
-            if self.processing_queue and len(self.processing_queue) > 0:
-                current_item = self.processing_queue[0]
-                current_item['status'] = 'pending'
-                self.message.emit(f"已停止处理论文: {current_item['id']}")
-            
-            # 更新队列状态
-            self.queue_updated.emit(self.processing_queue)
+            self.message.emit("当前任务处理中，将在完成后暂停")
     
     def resume_processing(self):
         """继续处理队列"""
@@ -965,6 +955,100 @@ class DataManager(QObject):
         # 如果没有正在进行的处理，尝试处理下一个
         if not self.is_processing:
             self.process_next_in_queue()
+
+    def clear_queue_and_delete_files(self):
+        """清空处理队列并删除队列中的PDF和已处理输出"""
+        if not self.processing_queue:
+            self.message.emit("处理队列为空，无需清理")
+            return
+
+        # 停止当前处理任务
+        self.is_paused = True
+        if self.current_thread and self.current_thread.isRunning():
+            self.current_thread.stop()
+        self.is_processing = False
+
+        queue_ids = [item.get('id') for item in self.processing_queue if item.get('id')]
+
+        # 删除PDF与输出内容
+        for paper_id in queue_ids:
+            pdf_path = os.path.join(self.data_dir, f"{paper_id}.pdf")
+            if os.path.exists(pdf_path):
+                try:
+                    os.remove(pdf_path)
+                except Exception as e:
+                    self.message.emit(f"[WARNING] 删除PDF失败: {pdf_path} ({e})")
+
+            # 删除输出目录或输出文件
+            paper_info = next((p for p in self.papers_index if p.get("id") == paper_id), None)
+            if paper_info:
+                paths = paper_info.get("paths", {})
+                for rel_path in paths.values():
+                    if not rel_path:
+                        continue
+                    full_path = os.path.join(self.output_dir, rel_path)
+                    try:
+                        if os.path.isdir(full_path):
+                            shutil.rmtree(full_path, ignore_errors=True)
+                        elif os.path.exists(full_path):
+                            os.remove(full_path)
+                    except Exception as e:
+                        self.message.emit(f"[WARNING] 删除输出失败: {full_path} ({e})")
+
+            # 通用输出目录清理
+            output_dir = os.path.join(self.output_dir, paper_id)
+            if os.path.isdir(output_dir):
+                shutil.rmtree(output_dir, ignore_errors=True)
+
+        # 从索引移除
+        if queue_ids:
+            self.papers_index = [p for p in self.papers_index if p.get("id") not in set(queue_ids)]
+            self._update_papers_index()
+
+        # 清空队列
+        self.processing_queue = []
+        self.queue_updated.emit(self.processing_queue)
+        self.message.emit(f"已清空队列并删除 {len(queue_ids)} 篇论文的PDF与输出")
+
+    def reorder_processing_queue(self, paper_id, direction):
+        """调整处理队列顺序"""
+        if not self.processing_queue:
+            return False
+
+        index = next((i for i, item in enumerate(self.processing_queue) if item.get('id') == paper_id), None)
+        if index is None:
+            return False
+
+        # 正在处理的任务不允许调整位置
+        min_index = 1 if self.is_processing else 0
+        if self.is_processing and index == 0:
+            return False
+
+        if direction == "up":
+            if index <= min_index:
+                return False
+            self.processing_queue[index - 1], self.processing_queue[index] = (
+                self.processing_queue[index],
+                self.processing_queue[index - 1],
+            )
+        elif direction == "down":
+            if index >= len(self.processing_queue) - 1:
+                return False
+            self.processing_queue[index + 1], self.processing_queue[index] = (
+                self.processing_queue[index],
+                self.processing_queue[index + 1],
+            )
+        elif direction == "top":
+            target = min_index
+            if index == target:
+                return False
+            item = self.processing_queue.pop(index)
+            self.processing_queue.insert(target, item)
+        else:
+            return False
+
+        self.queue_updated.emit(self.processing_queue)
+        return True
     
     def set_ai_manager(self, ai_manager):
         """设置AI管理器引用"""

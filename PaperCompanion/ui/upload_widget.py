@@ -20,6 +20,7 @@ class UploadWidget(QWidget):
     upload_zip = pyqtSignal(str)  # 上传ZIP文件信号，传递文件路径
     pause_processing = pyqtSignal()  # 暂停处理信号
     resume_processing = pyqtSignal()  # 继续处理信号
+    clear_queue_and_delete = pyqtSignal()  # 清空队列并删除文件信号
     
     def __init__(self, parent=None):
         """初始化上传文件窗口"""
@@ -251,6 +252,32 @@ class UploadWidget(QWidget):
         
         controls_layout.addWidget(self.pause_button)
         controls_layout.addWidget(self.resume_button)
+
+        # 清空队列按钮
+        clear_layout = QHBoxLayout()
+        self.clear_queue_btn = QPushButton("清空队列并删除")
+        self.clear_queue_btn.setToolTip("删除队列中的PDF及已处理输出")
+        self.clear_queue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clear_queue_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ffebee;
+                color: #c62828;
+                border: 1px solid #ef9a9a;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #ffcdd2;
+            }
+            QPushButton:disabled {
+                background-color: #f5f5f5;
+                color: #9e9e9e;
+                border-color: #e0e0e0;
+            }
+        """)
+        self.clear_queue_btn.clicked.connect(self.on_clear_queue_clicked)
+        clear_layout.addWidget(self.clear_queue_btn)
         
         # 添加到详情布局
         details_layout.addLayout(current_file_layout)
@@ -258,6 +285,7 @@ class UploadWidget(QWidget):
         details_layout.addLayout(progress_layout)
         details_layout.addLayout(pending_layout)
         details_layout.addLayout(controls_layout)
+        details_layout.addLayout(clear_layout)
         
         return upload_details
         
@@ -424,6 +452,10 @@ class UploadWidget(QWidget):
         self.pause_button.setEnabled(True)
         # 发送继续信号
         self.resume_processing.emit()
+
+    def on_clear_queue_clicked(self):
+        """清空队列按钮点击事件"""
+        self.clear_queue_and_delete.emit()
     
     def _download_arxiv_pdf(self, url):
         """下载 arXiv PDF 并返回本地临时文件路径"""

@@ -28,8 +28,9 @@ class ProcessingThread(QThread):
     
     def stop(self):
         """立即停止线程处理"""
+        # Avoid terminate(), which can freeze the UI on some platforms.
         self.is_running = False
-        self.terminate()  # 强制终止线程
+        self.requestInterruption()
 
 # 修改 AIResponseThread 类以传递滚动信息
 class AIResponseThread(QThread):

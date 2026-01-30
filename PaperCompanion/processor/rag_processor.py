@@ -318,6 +318,12 @@ class RagProcessor:
         生成 Markdown 内容，宽松化条件以处理更多类型的内容
         """
         md_content = f"# {key}\n"
+
+        def _append_parts(*parts):
+            cleaned = [str(p).strip() for p in parts if p is not None and str(p).strip()]
+            if cleaned:
+                return "\n".join(cleaned)
+            return ""
         
         # 不同类型的节点生成不同的内容
         if "summary" in node and "/section" in key:
@@ -331,8 +337,9 @@ class RagProcessor:
             if not content:
                 content = node.get("content", "")
             
-            if questions or content:
-                md_content += f"{questions}\n{content}"
+            body = _append_parts(questions, content)
+            if body:
+                md_content += body
                 return md_content
         
         if node.get("type") == "figure":
@@ -341,9 +348,12 @@ class RagProcessor:
             caption = node.get("translated_caption", "")
             if not caption:
                 caption = node.get("caption", "")
+            alt = node.get("alt", "")
+            src = node.get("src", "")
                 
-            if questions or caption:
-                md_content += f"{questions}\n{caption}"
+            body = _append_parts(questions, caption, alt, src)
+            if body:
+                md_content += body
                 return md_content
             
         if node.get("type") == "table":
@@ -352,17 +362,20 @@ class RagProcessor:
             caption = node.get("translated_caption", "")
             if not caption:
                 caption = node.get("caption", "")
+            content = node.get("content", "")
                 
-            if questions or caption:
-                md_content += f"{questions}\n{caption}"
+            body = _append_parts(questions, caption, content)
+            if body:
+                md_content += body
                 return md_content
         
         if node.get("type") == "formula":
             formula_content = node.get("content", "")
             formula_analysis = node.get("formula_analysis", "")
             
-            if formula_content or formula_analysis:
-                md_content += f"{formula_content}\n{formula_analysis}"
+            body = _append_parts(formula_content, formula_analysis)
+            if body:
+                md_content += body
                 return md_content
         
         # 如果节点是章节而不是内容项
