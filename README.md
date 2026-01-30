@@ -13,8 +13,8 @@
 - [x] 提供更便捷的论文文档管理功能（通过标记方式实现）
 - [x] 添加归档功能，将已阅读的文章打包存储
 - [x] 更新`download_models.py` 源自Github仓库
+- [x] 添加聊天历史记录
 - [ ] 增加不同的处理管线
-- [ ] 添加聊天历史记录
 
 ## 项目Demo
 ![](PaperCompanion/assets/new_demo.png)
