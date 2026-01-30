@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QTextEdit, QScrollArea, QLabel, QFrame, QMessageBox)
-from PyQt6.QtCore import Qt, QTimer
+                           QTextEdit, QScrollArea, QLabel, QFrame, QMessageBox, QSizePolicy)
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 import os
@@ -23,6 +23,7 @@ class ChatWidget(QWidget):
     COLOR_ACTIVE = "#4CAF50"  # 绿色：激活待命
     COLOR_VAD = "#FFC107"     # 黄色：检测到语音活动
     COLOR_ERROR = "red"       # 红色：错误状态
+    popup_toggle_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         """初始化聊天组件"""
@@ -38,6 +39,7 @@ class ChatWidget(QWidget):
         self.expanded_width = 450  # 减小侧边栏宽度
         self.is_expanded = True
         self.setMaximumWidth(self.expanded_width)  # 设置最大宽度
+        self._default_size_policy = self.sizePolicy()
         
         # 初始化UI
         self.init_ui()
@@ -104,6 +106,7 @@ class ChatWidget(QWidget):
                 color: white;
             }
         """)
+        self.title_bar = title_bar
         
         # 标题栏布局
         title_layout = QHBoxLayout(title_bar)
@@ -151,12 +154,44 @@ class ChatWidget(QWidget):
         """)
         self.clear_button.clicked.connect(self.clear_history)
 
+        self.popup_button = QPushButton("弹出")
+        self.popup_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.popup_button.setStyleSheet("""
+            QPushButton {
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                color: white;
+                font-weight: bold;
+                background-color: rgba(0, 0, 0, 0.15);
+                border-radius: 6px;
+                padding: 2px 8px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.25);
+            }
+        """)
+        self.popup_button.clicked.connect(self.popup_toggle_requested.emit)
+
         title_layout.addWidget(title_label, 0, Qt.AlignmentFlag.AlignLeft)
         title_layout.addWidget(self.clear_button, 0, Qt.AlignmentFlag.AlignLeft)
+        title_layout.addWidget(self.popup_button, 0, Qt.AlignmentFlag.AlignLeft)
         title_layout.addStretch(1)
         title_layout.addWidget(self.toggle_button, 0, Qt.AlignmentFlag.AlignRight)
         
         return title_bar
+
+    def set_popup_mode(self, is_popup: bool):
+        self.popup_button.setText("收回" if is_popup else "弹出")
+        if hasattr(self, "title_bar") and self.title_bar:
+            self.title_bar.setVisible(not is_popup)
+        if is_popup:
+            # Allow the widget to expand freely in a popup dialog.
+            self.setMaximumWidth(16777215)
+            self.setMinimumWidth(0)
+            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        else:
+            self.setMaximumWidth(self.expanded_width)
+            self.setMinimumWidth(0)
+            self.setSizePolicy(self._default_size_policy)
 
     def toggle_ai_chat(self):
         """切换侧边栏展开/折叠状态"""

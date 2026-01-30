@@ -42,7 +42,7 @@ class MessageBubble(QWidget):
             layout: 要添加气泡的布局
         """
         # 用户消息靠右
-        layout.addStretch(3)  # 左侧弹性空间
+        layout.addStretch(1)  # 左侧弹性空间
         
         # 创建气泡及容器
         bubble_container, bubble = self.create_bubble(
@@ -58,11 +58,12 @@ class MessageBubble(QWidget):
         avatar = self.create_avatar("user_avatar.svg")
         
         # 添加到布局
-        layout.addWidget(bubble_container, 7)
+        layout.addWidget(bubble_container)
         layout.addWidget(avatar)
 
         # 设置头像顶部对齐
         layout.setAlignment(avatar, Qt.AlignmentFlag.AlignTop)
+        layout.setAlignment(bubble_container, Qt.AlignmentFlag.AlignRight)
     
     def setup_ai_bubble(self, layout):
         """
@@ -117,7 +118,7 @@ class MessageBubble(QWidget):
             border: 1px solid {border_color};
             border-radius: {border_radius};
             padding: 8px;
-            min-width: 200px;
+            min-width: 0px;
             max-width: none;
             }}
         """)
@@ -142,6 +143,14 @@ class MessageBubble(QWidget):
         container_layout.setStretch(0, 4)  # 让气泡占据更多空间
         
         return container, bubble
+
+    def resizeEvent(self, event):
+        """根据聊天区宽度限制气泡最大宽度"""
+        super().resizeEvent(event)
+        available = max(0, self.width())
+        max_width = int(available * 0.7)
+        for bubble in self.findChildren(QFrame):
+            bubble.setMaximumWidth(max_width)
     
     def create_avatar(self, avatar_filename):
         """

@@ -3,7 +3,7 @@ import sys
 import subprocess
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QPushButton, QSplitter, 
-                           QLabel, QFrame)
+                           QLabel, QFrame, QDialog)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
@@ -31,6 +31,8 @@ class AIProfessorUI(QMainWindow):
 
         # 初始化ONLINE模式
         self.online_mode = ONLINE_MODE
+
+        self.chat_popup = None
         
         # 设置两者互相引用
         self.ai_manager.set_data_manager(self.data_manager)
@@ -293,6 +295,7 @@ class AIProfessorUI(QMainWindow):
                 background-color: #C5CAE9;
             }
         """)
+        self.content_splitter = splitter
         
         # 创建Markdown显示区域
         md_container = self.create_markdown_container()
@@ -302,6 +305,7 @@ class AIProfessorUI(QMainWindow):
         self.chat_widget.set_paper_controller(self.data_manager)
         self.chat_widget.set_ai_controller(self.ai_manager)
         self.chat_widget.set_markdown_view(self.md_view) 
+        self.chat_widget.popup_toggle_requested.connect(self.toggle_chat_popup)
         
         # 添加到分隔器并设置初始比例
         splitter.addWidget(md_container)
@@ -309,6 +313,41 @@ class AIProfessorUI(QMainWindow):
         splitter.setSizes([int(self.width() * 0.6), int(self.width() * 0.4)])
         
         return splitter
+
+    def toggle_chat_popup(self):
+        if self.chat_popup:
+            self._attach_chat_widget()
+        else:
+            self._detach_chat_widget()
+
+    def _detach_chat_widget(self):
+        if self.chat_popup:
+            return
+        self.chat_widget.setParent(None)
+        self.chat_popup = QDialog(self)
+        self.chat_popup.setWindowTitle("AI助手")
+        self.chat_popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        popup_layout = QVBoxLayout(self.chat_popup)
+        popup_layout.setContentsMargins(0, 0, 0, 0)
+        popup_layout.addWidget(self.chat_widget)
+        self.chat_widget.set_popup_mode(True)
+        self.chat_popup.resize(max(520, self.chat_widget.sizeHint().width()),
+                               max(640, self.chat_widget.sizeHint().height()))
+        self.chat_popup.show()
+
+        def _on_close(event):
+            self._attach_chat_widget()
+            event.accept()
+        self.chat_popup.closeEvent = _on_close
+
+    def _attach_chat_widget(self):
+        if not self.chat_popup:
+            return
+        self.chat_popup = None
+        self.chat_widget.setParent(self.content_splitter)
+        self.content_splitter.addWidget(self.chat_widget)
+        self.content_splitter.setSizes([int(self.width() * 0.6), int(self.width() * 0.4)])
+        self.chat_widget.set_popup_mode(False)
 
     def create_markdown_container(self):
         """创建Markdown文档显示区域"""
