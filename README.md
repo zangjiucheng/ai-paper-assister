@@ -35,42 +35,43 @@
         "device-mode":"mps"
     }
     ```
-    语音输入的Whisper模型会在运行时自动下载
 
-
-2. 编辑`PaperCompanion/config.py`设置API密钥和模型路径，数据默认存放在`~/.ai-paper-assister-data`目录下
-
-    ```py
-    ...
-
-    # API配置
-    API_BASE_URL = "YOUR_API_URL"
-    API_KEY = "YOUR_API_KEY"
-
-    # 嵌入模型配置
-    EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
-
-    # 数据存储路径
-    BASE_DIR = os.path.expanduser("~/.ai-paper-assister-data")
-
-    ...
-    ```
-
-3. 安装依赖 (按需生成需要venv环境)
+2. 安装依赖 (按需生成需要venv环境)
     ```sh
     pip install -r requirements.txt
     ```
 
-4. 1. 运行通过命令行
-       ```sh
-       python -m PaperCompanion.main
-       ```
+3. 运行应用
+    ```sh
+    python -m PaperCompanion.main
+    ```
 
-   2. 或者打包为.whl文件 (Recommended after running with cli)
-       ```sh
-       python -m build
-       pipx install dist/PaperCompanion-<version>-py3-none-any.whl
-       ```
+4. 或者打包为.whl文件 (Recommended after running with cli)
+    ```sh
+    python -m build
+    pipx install dist/PaperCompanion-<version>-py3-none-any.whl
+    ```
+
+## 配置说明（当前版本）
+
+### API配置来源
+- 默认读取顺序：
+  1. 环境变量 / `.env` 中的 `API_KEY` 和 `API_BASE_URL`
+  2. `PaperCompanion/config.py` 中默认值（`DEFAULT_API_KEY` / `DEFAULT_API_BASE_URL`）
+- `API_BASE_URL` 默认值：`https://api.deepseek.com/v1`
+
+### 配置文件位置
+- 应用级配置文件：`~/.config/ai-paper-assister/.env`
+- 示例：
+  ```env
+  API_KEY=your_api_key
+  API_BASE_URL=https://api.deepseek.com/v1
+  ```
+
+### 应用内设置模块
+- 启动后可在标题栏点击 `⚙ 设置`（快捷键 `Ctrl+,`）打开设置窗口。
+- 可直接在设置窗口修改并保存 `API_KEY` / `API_BASE_URL`。
+- 如果启动时缺少 `API_KEY`，应用不会阻断退出，会自动打开设置窗口引导配置。
 
 
 

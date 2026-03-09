@@ -10,6 +10,7 @@ from PyQt6.QtGui import QFont
 from .ui.markdown_view import MarkdownView
 from .ui.chat_widget import ChatWidget
 from .ui.sidebar_widget import SidebarWidget
+from .ui.settings_dialog import SettingsDialog
 from .data_manager import DataManager
 from .AI_manager import AIManager
 from .config import BASE_DIR, ONLINE_MODE
@@ -122,6 +123,7 @@ class AIProfessorUI(QMainWindow):
         titlebar_layout.addWidget(app_icon)
         titlebar_layout.addWidget(app_title)
         titlebar_layout.addStretch(1)
+        titlebar_layout.addWidget(self.btn_settings)
         titlebar_layout.addWidget(self.btn_minimize)
         titlebar_layout.addWidget(self.btn_maximize)
         titlebar_layout.addWidget(self.btn_close)
@@ -152,7 +154,31 @@ class AIProfessorUI(QMainWindow):
                 background-color: rgba(255, 255, 255, 0.2);
             }
         """
+
+        settings_btn_style = """
+            QPushButton {
+                background-color: rgba(255, 255, 255, 0.22);
+                color: white;
+                border: 1px solid rgba(255, 255, 255, 0.45);
+                font-family: Arial;
+                font-weight: bold;
+                font-size: 13px;
+                padding: 3px 10px;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.35);
+            }
+        """
         
+        # 最小化按钮
+        self.btn_settings = QPushButton("⚙ 设置")
+        self.btn_settings.setStyleSheet(settings_btn_style)
+        self.btn_settings.clicked.connect(self.open_settings_dialog)
+        self.btn_settings.setToolTip("打开设置")
+        self.btn_settings.setShortcut("Ctrl+,")
+        self.btn_settings.setCursor(Qt.CursorShape.PointingHandCursor)
+
         # 最小化按钮
         self.btn_minimize = QPushButton("﹣")
         self.btn_minimize.setStyleSheet(btn_style)
@@ -168,7 +194,7 @@ class AIProfessorUI(QMainWindow):
         self.btn_maximize.setShortcut("Ctrl+F")
         self.btn_maximize.setToolTip("最大化")
         self.btn_maximize.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+
         # 关闭按钮
         self.btn_close = QPushButton("✕")
         self.btn_close.setStyleSheet("""
@@ -190,6 +216,11 @@ class AIProfessorUI(QMainWindow):
         self.btn_close.clicked.connect(self.close)
         self.btn_close.setToolTip("关闭")
         self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def open_settings_dialog(self):
+        dialog = SettingsDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.statusBar().showMessage("设置已保存，建议重启应用后继续使用。")
 
     def titlebar_mousePressEvent(self, event):
         """处理标题栏的鼠标按下事件，用于实现窗口拖动"""

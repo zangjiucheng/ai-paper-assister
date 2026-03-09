@@ -1,9 +1,27 @@
 import sys
+import os
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFontDatabase, QFont, QPalette, QColor, QIcon, QPixmap, QPainter, QBrush, QLinearGradient
 from PyQt6.QtCore import Qt, QRect, QPoint
 from .paths import get_font_path
 from .AI_professor_UI import AIProfessorUI
+from .config import ONLINE_MODE, API_KEY
+
+
+def has_api_key() -> bool:
+    """检查当前环境是否已配置API_KEY。"""
+    return bool(os.getenv("API_KEY") or API_KEY)
+
+
+def configure_qtwebengine_flags():
+    """避免Skia Graphite空后端告警，稳定使用Ganesh。"""
+    disable_flag = "--disable-features=SkiaGraphite"
+    current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").strip()
+    if disable_flag in current_flags:
+        return
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
+        f"{current_flags} {disable_flag}".strip()
+    )
 
 def generate_app_icon():
     """生成应用程序图标"""
@@ -57,6 +75,7 @@ def generate_app_icon():
     return QIcon(pixmap)
 
 def main():
+    configure_qtwebengine_flags()
     app = QApplication(sys.argv)
     app.setStyle('Fusion')  # 使用Fusion风格以获得更现代的外观
     
@@ -107,9 +126,14 @@ def main():
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
     
     app.setPalette(palette)
-    
+
     window = AIProfessorUI()
     window.show()
+
+    # 启动时若缺少API_KEY，直接打开设置页，不再弹出阻断式输入框
+    if ONLINE_MODE and not has_api_key():
+        window.open_settings_dialog()
+
     sys.exit(app.exec())
 
 if __name__ == '__main__':

@@ -1,13 +1,56 @@
 import logging
 import sys
 import os
+from pathlib import Path
 from typing import Optional, List, Dict, Any, Generator
 from openai import OpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
+from dotenv import load_dotenv, set_key
 
 # API配置
-API_BASE_URL = "YOUR_API_URL"
-API_KEY = "YOUR_API_KEY"
+DEFAULT_API_BASE_URL = "https://api.deepseek.com/v1"
+DEFAULT_API_KEY = ""
+APP_CONFIG_DIR = Path.home() / ".config" / "ai-paper-assister"
+APP_ENV_PATH = APP_CONFIG_DIR / ".env"
+
+
+def _load_env():
+    # 优先读取用户配置目录
+    load_dotenv(dotenv_path=APP_ENV_PATH, override=False)
+    # 兼容项目目录下的 .env
+    load_dotenv(override=False)
+
+
+def get_config_env_path() -> str:
+    return str(APP_ENV_PATH)
+
+
+def get_api_base_url() -> str:
+    return os.getenv("API_BASE_URL", DEFAULT_API_BASE_URL)
+
+
+def get_api_key() -> str:
+    configured_key = os.getenv("API_KEY", "").strip()
+    if configured_key:
+        return configured_key
+    return DEFAULT_API_KEY
+
+
+def save_api_config(api_key: str, api_base_url: Optional[str] = None) -> None:
+    APP_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    APP_ENV_PATH.touch(exist_ok=True)
+
+    set_key(str(APP_ENV_PATH), "API_KEY", api_key.strip())
+    if api_base_url:
+        set_key(str(APP_ENV_PATH), "API_BASE_URL", api_base_url.strip())
+
+
+_load_env()
+API_BASE_URL = get_api_base_url()
+API_KEY = get_api_key()
+MISSING_API_KEY_MESSAGE = (
+    f"未检测到 API_KEY，请在 {get_config_env_path()} 或环境变量中配置。"
+)
 
 # 嵌入模型配置
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
@@ -55,8 +98,13 @@ class LLMClient:
         if self._initialized:
             return
             
-        self.api_key = api_key or API_KEY
-        self.base_url = base_url or API_BASE_URL
+        self.api_key = api_key or get_api_key()
+        self.base_url = base_url or get_api_base_url()
+        if not self.api_key:
+            self.client = None
+            logging.warning(MISSING_API_KEY_MESSAGE)
+            self._initialized = True
+            return
         
         self.client = OpenAI(
             api_key=self.api_key,
@@ -75,6 +123,9 @@ class LLMClient:
         Returns:
             str: LLM响应内容
         """
+        if self.client is None:
+            return MISSING_API_KEY_MESSAGE
+
         try:
             response = self.client.chat.completions.create(
                 model="deepseek-chat",
@@ -112,6 +163,10 @@ class LLMClient:
         Returns:
             str: 完整响应
         """
+        if self.client is None:
+            yield MISSING_API_KEY_MESSAGE
+            return MISSING_API_KEY_MESSAGE
+
         try:
             response = self.client.chat.completions.create(
                 model="deepseek-chat",
