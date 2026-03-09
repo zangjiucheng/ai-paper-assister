@@ -1,5 +1,9 @@
 # AI论文助手（AI Paper Assister）
 
+[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/zangjiucheng/ai-paper-assister)
+[![PyPI version](https://img.shields.io/pypi/v/PaperCompanion.svg)](https://pypi.org/project/PaperCompanion/)
+[![Python versions](https://img.shields.io/pypi/pyversions/PaperCompanion.svg)](https://pypi.org/project/PaperCompanion/)
+
 > 该项目是 LinYi's Team 的 mad-professor 的一个分支，主要用于个人论文阅读
 
 **TODO LIST:**
@@ -21,36 +25,70 @@
 
 ## 安装指南
 
-**具体参考原项目的安装指南（在底部）** 
+推荐使用以下两种方式，根据你的场景选择其一。
 
-1. 下载模型
+### 方式一：通过 PyPI 安装（推荐）
+
+1. 安装应用
+   ```sh
+   pip install PaperCompanion
+   ```
+
+2. 下载模型（首次运行前）
+   ```sh
+   curl -L -o download_models.py https://raw.githubusercontent.com/zangjiucheng/ai-paper-assister/main/download_models.py
+   python download_models.py
+   ```
+   如果已下载过脚本，可直接运行：
    ```sh
    python download_models.py
    ```
-    python脚本会自动下载模型文件并配置好配置文件中的模型目录，配置文件可以在用户目录中找到，文件名为magic-pdf.json
 
-    修改【用户目录】配置文件magic-pdf.json中"device-mode"的值来启用MPS
-    ```
-    {
-        "device-mode":"mps"
-    }
-    ```
+3. 启动应用
+   ```sh
+   paper-companion
+   ```
 
-2. 安装依赖 (按需生成需要venv环境)
-    ```sh
-    pip install -r requirements.txt
-    ```
+### 方式二：通过源码安装
 
-3. 运行应用
-    ```sh
-    python -m PaperCompanion.main
-    ```
+1. 克隆仓库
+   ```sh
+   git clone https://github.com/zangjiucheng/ai-paper-assister.git
+   cd ai-paper-assister
+   ```
 
-4. 或者打包为.whl文件 (Recommended after running with cli)
-    ```sh
-    python -m build
-    pipx install dist/PaperCompanion-<version>-py3-none-any.whl
-    ```
+2. 安装依赖
+   ```sh
+   pip install -r requirements.txt
+   ```
+
+3. 下载模型
+   ```sh
+   python download_models.py
+   ```
+
+4. 运行应用
+   ```sh
+   python -m PaperCompanion.main
+   ```
+
+### 可选：打包并安装 wheel（源码安装用户）
+
+```sh
+python -m build
+pipx install dist/*.whl
+```
+
+### 模型配置提示（可选）
+
+`download_models.py` 会自动配置模型目录，配置文件位于用户目录下的 `magic-pdf.json`。  
+如需启用 Apple Silicon 的 MPS，可将 `"device-mode"` 设置为 `"mps"`：
+
+```json
+{
+  "device-mode": "mps"
+}
+```
 
 ## 配置说明（当前版本）
 
