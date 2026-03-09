@@ -61,12 +61,12 @@ class Pipeline(QObject):
             'tiling': self._stage_tiling,
             'translate': self._stage_translate,
             'md_restore': self._stage_md_restore,
-            # 'extra_info': self._stage_extra_info,
+            'extra_info': self._stage_extra_info,
             'rag': self._stage_rag
         }
 
         self.offline_skip_stages = {
-            "translate", "md_restore", "rag"
+            "translate", "md_restore", "extra_info", "rag"
         }
         self.stages = stages or list(self.available_stages.keys())
         self.logger.debug("初始化处理阶段: %s", self.stages)
