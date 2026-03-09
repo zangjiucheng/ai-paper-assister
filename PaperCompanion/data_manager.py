@@ -313,6 +313,49 @@ class DataManager(QObject):
         self.message.emit(f"加载完成，发现 {len(self.papers_index) - previous_paper_count} 篇新论文")
     
     # ========== 论文索引加载管理 ==========
+
+    def _parse_time(self, value):
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            try:
+                return datetime.fromisoformat(text).timestamp()
+            except ValueError:
+                try:
+                    return float(text)
+                except ValueError:
+                    return None
+        return None
+
+    def _infer_added_at(self, paper):
+        known_value = paper.get("added_at") or paper.get("created_at") or paper.get("add_time")
+        if self._parse_time(known_value) is not None:
+            return known_value
+
+        paper_id = paper.get("id")
+        if paper_id:
+            pdf_path = os.path.join(self.data_dir, f"{paper_id}.pdf")
+            if os.path.exists(pdf_path):
+                return datetime.fromtimestamp(os.path.getmtime(pdf_path)).isoformat(timespec='seconds')
+
+            output_path = os.path.join(self.output_dir, paper_id)
+            if os.path.exists(output_path):
+                return datetime.fromtimestamp(os.path.getmtime(output_path)).isoformat(timespec='seconds')
+
+        return "1970-01-01T00:00:00"
+
+    def _paper_sort_key(self, paper):
+        return (
+            self._parse_time(paper.get("added_at")) or 0.0,
+            paper.get("id", "")
+        )
     
     def load_papers_index(self):
         """加载论文索引数据"""
@@ -321,7 +364,18 @@ class DataManager(QObject):
             if os.path.exists(index_path):
                 with open(index_path, 'r', encoding='utf-8') as f:
                     self.papers_index = json.load(f)
-                    self.papers_index.sort(key=lambda x: (0 if x.get("active", True) else 1, x.get('id', '')))
+                index_changed = False
+                for paper in self.papers_index:
+                    inferred_added_at = self._infer_added_at(paper)
+                    if paper.get("added_at") != inferred_added_at:
+                        paper["added_at"] = inferred_added_at
+                        index_changed = True
+
+                self.papers_index.sort(key=self._paper_sort_key, reverse=True)
+
+                if index_changed:
+                    with open(index_path, 'w', encoding='utf-8') as wf:
+                        json.dump(self.papers_index, wf, ensure_ascii=False, indent=4)
                 self.message.emit(f"成功从 {index_path} 加载论文索引")
                 self.papers_loaded.emit(self.papers_index)
             else:

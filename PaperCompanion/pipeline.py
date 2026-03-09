@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import json
 import logging
+from datetime import datetime
 from typing import Optional, Dict, List, Union
 from .processor.pdf_processor import PDFProcessor
 from .processor.md_processor import MarkdownProcessor
@@ -340,6 +341,7 @@ class Pipeline(QObject):
             'translated_title': translated_title,
             'paths': path_dict,
             'active': False,
+            'added_at': datetime.now().isoformat(timespec='seconds'),
         }
         
         # 查找现有条目
@@ -351,6 +353,9 @@ class Pipeline(QObject):
         
         # 更新或添加条目
         if existing_index >= 0:
+            existing_added_at = papers_index[existing_index].get('added_at')
+            if existing_added_at:
+                paper_entry['added_at'] = existing_added_at
             papers_index[existing_index] = paper_entry
         else:
             papers_index.append(paper_entry)

@@ -1,7 +1,8 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                           QListWidget, QListWidgetItem, QLabel, QFrame, QMessageBox)
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+                           QListWidget, QListWidgetItem, QLabel, QFrame, QMessageBox, QLineEdit)
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QShortcut, QKeySequence, QFont, QColor, QBrush
+from datetime import datetime
 
 from .upload_widget import UploadWidget  # 导入上传文件窗口类
 
@@ -28,6 +29,8 @@ class SidebarWidget(QWidget):
         self.queue_status = {}
         self.queue_entries = []
         self.paper_items = {}
+        self.all_papers = []
+        self.paper_lookup = {}
         
         self.init_ui()
         
@@ -115,6 +118,27 @@ class SidebarWidget(QWidget):
         """)
         list_layout = QVBoxLayout(list_container)
         list_layout.setContentsMargins(0, 0, 0, 0)
+
+        # 搜索框
+        self.search_input = QLineEdit()
+        self.search_input.setObjectName("paperSearchInput")
+        self.search_input.setPlaceholderText("搜索论文标题或ID")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setStyleSheet("""
+            #paperSearchInput {
+                margin: 8px;
+                padding: 6px 10px;
+                border: 1px solid #c5cae9;
+                border-radius: 8px;
+                background-color: white;
+                color: #1f2933;
+            }
+            #paperSearchInput:focus {
+                border: 1px solid #1a237e;
+            }
+        """)
+        self.search_input.textChanged.connect(self._on_search_text_changed)
+        list_layout.addWidget(self.search_input)
         
         # 论文列表
         self.paper_list = QListWidget()
@@ -285,6 +309,7 @@ class SidebarWidget(QWidget):
         
         # 显示/隐藏其他内容
         self.title_label.setVisible(self.is_expanded)
+        self.search_input.setVisible(self.is_expanded)
         self.paper_list.setVisible(self.is_expanded)
         self.queue_info_label.setVisible(self.is_expanded and bool(self.queue_entries))
         self.upload_widget.setVisible(self.is_expanded)
@@ -300,13 +325,28 @@ class SidebarWidget(QWidget):
     
     def load_papers(self, papers_index):
         """加载论文索引到列表"""
+        self.all_papers = self._sort_papers_by_added_time(papers_index or [])
+        self.paper_lookup = {paper.get("id"): paper for paper in self.all_papers if paper.get("id")}
+        self._render_paper_list()
+
+    def _on_search_text_changed(self, _text):
+        self._render_paper_list()
+
+    def _render_paper_list(self):
+        selected_ids = {
+            item.data(Qt.ItemDataRole.UserRole).get("id")
+            for item in self.paper_list.selectedItems()
+            if item.data(Qt.ItemDataRole.UserRole)
+        }
+
+        keyword = self.search_input.text().strip().lower()
+        visible_papers = self._filter_papers(keyword)
+
         self.paper_list.clear()
         self.paper_items = {}
-        for index, paper in enumerate(papers_index, start=1):
-            # 优先使用translated_title作为显示文本
-            title = paper.get('translated_title') or paper.get('title') or paper.get('id', '')
-            if paper.get('active') == 1:
-                title = f"{index}. {title}"
+
+        for index, paper in enumerate(visible_papers, start=1):
+            title = self._build_display_title(paper, index)
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, paper)
             self.paper_list.addItem(item)
@@ -315,7 +355,65 @@ class SidebarWidget(QWidget):
                 self.paper_items[paper_id] = item
                 status = self.queue_status.get(paper_id)
                 self._apply_item_style(item, status)
+                if paper_id in selected_ids:
+                    item.setSelected(True)
+
+        self.selected_papers = [
+            item.data(Qt.ItemDataRole.UserRole)
+            for item in self.paper_list.selectedItems()
+            if item.data(Qt.ItemDataRole.UserRole)
+        ]
         self._refresh_queue_display()
+
+    def _filter_papers(self, keyword):
+        if not keyword:
+            return self.all_papers
+
+        def matched(paper):
+            translated_title = (paper.get("translated_title") or "").lower()
+            title = (paper.get("title") or "").lower()
+            paper_id = (paper.get("id") or "").lower()
+            return keyword in translated_title or keyword in title or keyword in paper_id
+
+        return [paper for paper in self.all_papers if matched(paper)]
+
+    def _build_display_title(self, paper, index=None):
+        title = paper.get('translated_title') or paper.get('title') or paper.get('id', '')
+        if index and paper.get('active') == 1:
+            return f"{index}. {title}"
+        return title
+
+    def _parse_time(self, value):
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            try:
+                return datetime.fromisoformat(text).timestamp()
+            except ValueError:
+                try:
+                    return float(text)
+                except ValueError:
+                    return None
+        return None
+
+    def _sort_papers_by_added_time(self, papers):
+        return sorted(
+            papers,
+            key=lambda p: (
+                self._parse_time(
+                    p.get("added_at") or p.get("created_at") or p.get("add_time")
+                ) or 0.0,
+                p.get("id", "")
+            ),
+            reverse=True
+        )
     
     def on_download_button_clicked(self):
         """弹出确认窗口，展示并确认下载选中的论文 ID 列表"""
@@ -495,6 +593,8 @@ class SidebarWidget(QWidget):
             display_text = paper_id
             if paper_id in self.paper_items:
                 display_text = self.paper_items[paper_id].text()
+            elif paper_id in self.paper_lookup:
+                display_text = self._build_display_title(self.paper_lookup[paper_id])
             lines.append(f"<span style='color:{color}; font-weight:bold;'>{status_text}</span> - {display_text}")
         
         self.queue_info_label.setText("<br>".join(lines))
