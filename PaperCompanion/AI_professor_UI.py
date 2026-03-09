@@ -124,6 +124,7 @@ class AIProfessorUI(QMainWindow):
         titlebar_layout.addWidget(app_title)
         titlebar_layout.addStretch(1)
         titlebar_layout.addWidget(self.btn_settings)
+        titlebar_layout.addSpacing(8)
         titlebar_layout.addWidget(self.btn_minimize)
         titlebar_layout.addWidget(self.btn_maximize)
         titlebar_layout.addWidget(self.btn_close)
@@ -148,6 +149,8 @@ class AIProfessorUI(QMainWindow):
                 font-weight: bold;
                 font-size: 14px;
                 padding: 4px 8px;
+                margin-left: 2px;
+                margin-right: 2px;
                 border-radius: 4px;
             }
             QPushButton:hover {
@@ -182,6 +185,7 @@ class AIProfessorUI(QMainWindow):
         # 最小化按钮
         self.btn_minimize = QPushButton("﹣")
         self.btn_minimize.setStyleSheet(btn_style)
+        self.btn_minimize.setFixedWidth(30)
         self.btn_minimize.clicked.connect(self.showMinimized)
         self.btn_minimize.setToolTip("最小化")
         self.btn_minimize.setShortcut("Ctrl+M")
@@ -190,6 +194,7 @@ class AIProfessorUI(QMainWindow):
         # 最大化/还原按钮
         self.btn_maximize = QPushButton("z")
         self.btn_maximize.setStyleSheet(btn_style)
+        self.btn_maximize.setFixedWidth(30)
         self.btn_maximize.clicked.connect(self.toggle_maximize)
         self.btn_maximize.setShortcut("Ctrl+F")
         self.btn_maximize.setToolTip("最大化")
@@ -213,6 +218,7 @@ class AIProfessorUI(QMainWindow):
                 border-radius: 4px;
             }
         """)
+        self.btn_close.setFixedWidth(30)
         self.btn_close.clicked.connect(self.close)
         self.btn_close.setToolTip("关闭")
         self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)

@@ -1,11 +1,10 @@
 import logging
 import json
-import os
 from typing import List, Dict, Any, Generator, Tuple
-from .config import LLMClient
+from .config import LLMClient, read_prompt_content
 
-AI_EXPLAIN_PROMPT_PATH = "prompt/ai_explain_prompt.txt"
-AI_ROUTER_PROMPT_PATH = "prompt/ai_router_prompt.txt"
+AI_EXPLAIN_PROMPT_FILE = "ai_explain_prompt.txt"
+AI_ROUTER_PROMPT_FILE = "ai_router_prompt.txt"
 
 class AIProfessorChat:
     """
@@ -21,9 +20,6 @@ class AIProfessorChat:
     def __init__(self):
         """初始化AI对话助手"""
         self.logger = logging.getLogger(__name__)
-        
-        # 设置基础路径
-        self.base_path = os.path.dirname(os.path.abspath(__file__))
         
         # 对话历史 (保持最近10条)
         self.conversation_history = []
@@ -43,15 +39,6 @@ class AIProfessorChat:
         except Exception as e:
             self.logger.error(f"初始化AI对话组件失败: {str(e)}")
 
-    def _read_file(self, filepath: str) -> str:
-        """读取文件内容"""
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return f.read().strip()
-        except Exception as e:
-            self.logger.warning(f"读取文件 {filepath} 失败: {str(e)}")
-            return ""
-    
     def set_paper_context(self, paper_id: str, paper_data: Dict[str, Any]) -> bool:
         """设置当前论文上下文
         
@@ -237,7 +224,7 @@ class AIProfessorChat:
         
         try:
             # 1. 读取并准备决策提示词
-            router_prompt = self._read_file(os.path.join(self.base_path,AI_ROUTER_PROMPT_PATH))
+            router_prompt = read_prompt_content(AI_ROUTER_PROMPT_FILE)
             
             # 确定当前论文状态
             has_paper_loaded = self.current_paper_id is not None and self.current_paper_data is not None
@@ -437,7 +424,7 @@ class AIProfessorChat:
         messages = []
         
         # 读取角色提示词和解释提示词
-        explain_prompt = self._read_file(os.path.join(self.base_path,AI_EXPLAIN_PROMPT_PATH))
+        explain_prompt = read_prompt_content(AI_EXPLAIN_PROMPT_FILE)
         
         # 添加论文标题到系统提示(如果有)
         title = ""

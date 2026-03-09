@@ -12,6 +12,8 @@ DEFAULT_API_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_API_KEY = ""
 APP_CONFIG_DIR = Path.home() / ".config" / "ai-paper-assister"
 APP_ENV_PATH = APP_CONFIG_DIR / ".env"
+DEFAULT_PROMPT_DIR = Path(__file__).resolve().parent / "prompt"
+APP_PROMPTS_DIR = APP_CONFIG_DIR / "prompts"
 
 
 def _load_env():
@@ -43,6 +45,61 @@ def save_api_config(api_key: str, api_base_url: Optional[str] = None) -> None:
     set_key(str(APP_ENV_PATH), "API_KEY", api_key.strip())
     if api_base_url:
         set_key(str(APP_ENV_PATH), "API_BASE_URL", api_base_url.strip())
+
+
+def get_prompt_override_dir() -> str:
+    return str(APP_PROMPTS_DIR)
+
+
+def get_default_prompt_path(prompt_name: str) -> Path:
+    return DEFAULT_PROMPT_DIR / prompt_name
+
+
+def get_prompt_override_path(prompt_name: str) -> Path:
+    return APP_PROMPTS_DIR / prompt_name
+
+
+def is_prompt_overridden(prompt_name: str) -> bool:
+    return get_prompt_override_path(prompt_name).exists()
+
+
+def resolve_prompt_path(prompt_name: str) -> Path:
+    override_path = get_prompt_override_path(prompt_name)
+    if override_path.exists():
+        return override_path
+    return get_default_prompt_path(prompt_name)
+
+
+def read_prompt_content(prompt_name: str) -> str:
+    prompt_path = resolve_prompt_path(prompt_name)
+    try:
+        return prompt_path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
+def get_default_prompt_content(prompt_name: str) -> str:
+    path = get_default_prompt_path(prompt_name)
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
+def save_prompt_override(prompt_name: str, content: str) -> Path:
+    APP_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+    path = get_prompt_override_path(prompt_name)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def list_available_prompt_files() -> List[str]:
+    names = set()
+    if DEFAULT_PROMPT_DIR.exists():
+        names.update(p.name for p in DEFAULT_PROMPT_DIR.glob("*.txt"))
+    if APP_PROMPTS_DIR.exists():
+        names.update(p.name for p in APP_PROMPTS_DIR.glob("*.txt"))
+    return sorted(names)
 
 
 _load_env()
