@@ -70,11 +70,22 @@ class AIProfessorUI(QMainWindow):
             }
         """)
         
-        # 设置无边框窗口，但允许调整大小
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | 
-                          Qt.WindowType.WindowMaximizeButtonHint | 
-                          Qt.WindowType.WindowMinimizeButtonHint | 
-                          Qt.WindowType.WindowCloseButtonHint)
+        # macOS 上使用系统窗口边框，确保支持贴边和边缘缩放
+        self.use_frameless_window = sys.platform != "darwin"
+        if self.use_frameless_window:
+            self.setWindowFlags(
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowMaximizeButtonHint
+                | Qt.WindowType.WindowMinimizeButtonHint
+                | Qt.WindowType.WindowCloseButtonHint
+            )
+        else:
+            self.setWindowFlags(
+                Qt.WindowType.Window
+                | Qt.WindowType.WindowMaximizeButtonHint
+                | Qt.WindowType.WindowMinimizeButtonHint
+                | Qt.WindowType.WindowCloseButtonHint
+            )
         
         # 设置窗口样式
         self.setStyleSheet("""
@@ -811,17 +822,24 @@ class AIProfessorUI(QMainWindow):
 
     def closeEvent(self, event):
         """处理窗口关闭事件 - 确保所有线程停止"""
-        # 调用聊天部件的closeEvent
         # 清理AI管理器资源
         if hasattr(self, 'ai_manager'):
             self.ai_manager.cleanup()
-        if hasattr(self, 'chat_widget'):
-            # 如果chat_widget中有语音线程，请求中断并清理
-            if hasattr(self.chat_widget, 'voice_thread') and self.chat_widget.voice_thread:
-                self.chat_widget.voice_thread.stop()  # 使用新增的stop()方法
-                self.chat_widget.voice_thread.wait(1000)  # 等待线程完成，最多1秒
-            
-            self.chat_widget.closeEvent(event)
+
+        # chat_widget 在弹窗切换/关闭过程中可能已被 Qt 销毁，需防止访问已失效对象
+        chat_widget = getattr(self, 'chat_widget', None)
+        if chat_widget is not None:
+            try:
+                voice_thread = getattr(chat_widget, 'voice_thread', None)
+            except RuntimeError:
+                voice_thread = None
+
+            if voice_thread:
+                try:
+                    voice_thread.stop()
+                    voice_thread.wait(1000)  # 等待线程完成，最多1秒
+                except RuntimeError:
+                    pass
         
         # 停止任何正在运行的处理线程
         if self.data_manager.current_thread is not None and self.data_manager.current_thread.isRunning():
