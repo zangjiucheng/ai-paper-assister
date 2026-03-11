@@ -30,10 +30,21 @@ class BubbleWebView(QWebEngineView):
             QTimer.singleShot(delay, self._update_height)
 
     def _update_height(self):
-        self.page().runJavaScript(
-            "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)",
-            self._on_height_ready
-        )
+        script = """
+        (() => {
+            const body = document.body;
+            const doc = document.documentElement;
+            if (!body && !doc) return null;
+            const bodyHeight = body ? body.scrollHeight : 0;
+            const docHeight = doc ? doc.scrollHeight : 0;
+            return Math.max(bodyHeight, docHeight);
+        })()
+        """
+        try:
+            self.page().runJavaScript(script, self._on_height_ready)
+        except RuntimeError:
+            # WebEngine page may already be destroyed during widget teardown.
+            return
 
     def _on_height_ready(self, value):
         try:

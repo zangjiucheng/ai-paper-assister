@@ -210,7 +210,6 @@ class AIProfessorUI(QMainWindow):
         self.btn_maximize.setStyleSheet(btn_style)
         self.btn_maximize.setFixedWidth(30)
         self.btn_maximize.clicked.connect(self.toggle_maximize)
-        self.btn_maximize.setShortcut("Ctrl+F")
         self.btn_maximize.setToolTip("最大化")
         self.btn_maximize.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -270,7 +269,6 @@ class AIProfessorUI(QMainWindow):
             self.showMaximized()
             self.btn_maximize.setText("r")
             self.btn_maximize.setToolTip("还原")
-        self.btn_maximize.setShortcut("Ctrl+F")
 
     def init_ui_components(self):
         """

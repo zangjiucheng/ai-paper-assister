@@ -291,13 +291,15 @@ class MarkdownView(QWebEngineView):
             // 获取所有文本元素
             var textElements = Array.from(document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, table, code, a, .arithmatex, .katex-display:not(.arithmatex *)'));
             
-            // 获取文档总高度
+            // 获取文档总高度（在页面销毁边界上做空值保护）
+            var body = document.body;
+            var docEl = document.documentElement;
             var documentHeight = Math.max(
-                document.body.scrollHeight,
-                document.body.offsetHeight,
-                document.documentElement.clientHeight,
-                document.documentElement.scrollHeight,
-                document.documentElement.offsetHeight
+                body ? body.scrollHeight : 0,
+                body ? body.offsetHeight : 0,
+                docEl ? docEl.clientHeight : 0,
+                docEl ? docEl.scrollHeight : 0,
+                docEl ? docEl.offsetHeight : 0
             );
             
             // 筛选当前在视口中的元素
