@@ -1,7 +1,54 @@
-from PyQt6.QtWidgets import QWidget, QFrame, QLabel, QHBoxLayout, QVBoxLayout
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPixmap
+import html
+import os
+import re
+
+import markdown
+from PyQt6.QtWidgets import QWidget, QFrame, QLabel, QHBoxLayout, QVBoxLayout, QSizePolicy
+from PyQt6.QtCore import Qt, QTimer, QUrl
+from PyQt6.QtGui import QPixmap, QColor
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from ..paths import get_asset_path
+
+
+class BubbleWebView(QWebEngineView):
+    """用于消息气泡的轻量Web渲染视图（支持 Markdown + LaTeX）"""
+
+    def __init__(self, bg_color, parent=None):
+        super().__init__(parent)
+        self._min_content_height = 28
+        self._bg_color = bg_color
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumHeight(self._min_content_height)
+        self.setMaximumHeight(2000)
+        self.setStyleSheet(f"background: {bg_color}; border: none;")
+        self.page().setBackgroundColor(QColor(bg_color))
+        self.loadFinished.connect(self._schedule_height_updates)
+
+    def _schedule_height_updates(self, _success):
+        for delay in (0, 60, 180, 420):
+            QTimer.singleShot(delay, self._update_height)
+
+    def _update_height(self):
+        self.page().runJavaScript(
+            "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)",
+            self._on_height_ready
+        )
+
+    def _on_height_ready(self, value):
+        try:
+            height = int(value)
+        except (TypeError, ValueError):
+            return
+        height = max(self._min_content_height, height + 2)
+        if self.height() != height:
+            self.setFixedHeight(height)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # 宽度变化后，公式换行会改变总高度，需要重新测量。
+        QTimer.singleShot(0, self._update_height)
+
 
 class MessageBubble(QWidget):
     """
@@ -22,6 +69,134 @@ class MessageBubble(QWidget):
         self.is_user = is_user
         self.message = message
         self.init_ui()
+
+    @staticmethod
+    def _needs_rich_render(message):
+        if not message:
+            return False
+        # 数学公式或常见 Markdown 语法时启用 Web 渲染。
+        math_patterns = [
+            r"\$\$[\s\S]+?\$\$",
+            r"(?<!\$)\$[^$\n]+\$(?!\$)",
+            r"\\\([\s\S]+?\\\)",
+            r"\\\[[\s\S]+?\\\]",
+        ]
+        markdown_patterns = [
+            r"```[\s\S]+?```",
+            r"(^|\n)\s*[-*+]\s+",
+            r"(^|\n)\s*\d+\.\s+",
+            r"`[^`\n]+`",
+        ]
+        for pattern in math_patterns + markdown_patterns:
+            if re.search(pattern, message):
+                return True
+        return False
+
+    @staticmethod
+    def _build_message_html(message, text_color, bg_color):
+        safe_text = html.escape(message or "")
+        try:
+            body_html = markdown.markdown(
+                safe_text,
+                extensions=[
+                    "tables",
+                    "fenced_code",
+                    "extra",
+                    "pymdownx.arithmatex",
+                ],
+                extension_configs={
+                    "pymdownx.arithmatex": {"generic": True},
+                },
+            )
+        except Exception:
+            body_html = "<p>{}</p>".format(html.escape(safe_text).replace("\n", "<br>"))
+
+        katex_css_path = get_asset_path("katex/katex.min.css")
+        katex_js_path = get_asset_path("katex/katex.min.js")
+        katex_autorender_path = get_asset_path("katex/contrib/auto-render.min.js")
+        katex_css_url = QUrl.fromLocalFile(katex_css_path).toString()
+        katex_js_url = QUrl.fromLocalFile(katex_js_path).toString()
+        katex_autorender_url = QUrl.fromLocalFile(katex_autorender_path).toString()
+
+        return f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{katex_css_url}">
+  <style>
+    html, body {{
+      margin: 0;
+      padding: 0;
+      background: {bg_color};
+      color: {text_color};
+      overflow-x: hidden;
+      font-family: 'Source Han Sans SC', 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }}
+    .msg-root {{
+      padding: 0;
+      margin: 0;
+    }}
+    p {{
+      margin: 0.2em 0;
+    }}
+    pre {{
+      background-color: rgba(255, 255, 255, 0.55);
+      border-radius: 6px;
+      padding: 0.6em;
+      overflow-x: auto;
+      margin: 0.4em 0;
+    }}
+    code {{
+      background-color: rgba(255, 255, 255, 0.5);
+      border-radius: 4px;
+      padding: 0.1em 0.3em;
+      font-family: Consolas, Monaco, monospace;
+    }}
+    pre code {{
+      background-color: transparent;
+      padding: 0;
+    }}
+    .arithmatex {{
+      overflow-x: auto;
+      max-width: 100%;
+    }}
+    .katex-display > .katex {{
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 4px 0;
+    }}
+  </style>
+  <script defer src="{katex_js_url}"></script>
+  <script defer src="{katex_autorender_url}"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {{
+      if (window.renderMathInElement) {{
+        renderMathInElement(document.body, {{
+          delimiters: [
+            {{left: '$$', right: '$$', display: true}},
+            {{left: '$', right: '$', display: false}},
+            {{left: '\\\\(', right: '\\\\)', display: false}},
+            {{left: '\\\\[', right: '\\\\]', display: true}}
+          ],
+          throwOnError: false,
+          strict: false,
+          trust: true
+        }});
+      }}
+    }});
+  </script>
+</head>
+<body>
+  <div class="msg-root">{body_html}</div>
+</body>
+</html>
+"""
         
     def init_ui(self):
         """初始化气泡UI"""
@@ -127,13 +302,22 @@ class MessageBubble(QWidget):
         bubble_layout = QVBoxLayout(bubble)
         bubble_layout.setContentsMargins(8, 8, 8, 8)
         
-        # 消息文本
-        msg_label = QLabel(message)
-        msg_label.setWordWrap(True)
-        msg_label.setStyleSheet(f"color: {text_color}; font-size: 14px;")
-        msg_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        
-        bubble_layout.addWidget(msg_label)
+        if self._needs_rich_render(message):
+            msg_view = BubbleWebView(bg_color, bubble)
+            msg_view.setObjectName("messageWebView")
+            msg_view.setStyleSheet(f"background: {bg_color}; border: none;")
+            message_html = self._build_message_html(message, text_color, bg_color)
+            # 以 assets 目录为 base_url，确保本地 KaTeX 资源可被加载。
+            assets_dir = os.path.dirname(get_asset_path("katex/katex.min.js"))
+            msg_view.setHtml(message_html, QUrl.fromLocalFile(assets_dir + os.sep))
+            bubble_layout.addWidget(msg_view)
+        else:
+            # 纯文本走 QLabel，保持轻量。
+            msg_label = QLabel(message)
+            msg_label.setWordWrap(True)
+            msg_label.setStyleSheet(f"color: {text_color}; font-size: 14px;")
+            msg_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            bubble_layout.addWidget(msg_label)
         
         # 创建容器（用于控制气泡大小比例）
         container = QWidget()
