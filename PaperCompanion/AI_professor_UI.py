@@ -135,10 +135,13 @@ class AIProfessorUI(QMainWindow):
         titlebar_layout.addWidget(app_title)
         titlebar_layout.addStretch(1)
         titlebar_layout.addWidget(self.btn_settings)
-        titlebar_layout.addSpacing(8)
-        titlebar_layout.addWidget(self.btn_minimize)
-        titlebar_layout.addWidget(self.btn_maximize)
-        titlebar_layout.addWidget(self.btn_close)
+
+        # macOS 使用系统自带窗口控制按钮，仅保留设置按钮
+        if self.use_frameless_window:
+            titlebar_layout.addSpacing(8)
+            titlebar_layout.addWidget(self.btn_minimize)
+            titlebar_layout.addWidget(self.btn_maximize)
+            titlebar_layout.addWidget(self.btn_close)
         
         # 绑定拖动和双击事件
         self.titlebar.mousePressEvent = self.titlebar_mousePressEvent
